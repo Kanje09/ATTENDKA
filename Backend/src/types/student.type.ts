@@ -1,4 +1,4 @@
-export interface student_type {
+export interface studentAuth_type {
     id: number;
     name: string;
 
@@ -8,3 +8,11 @@ export interface student_type {
 
     created_at: Date;
 };
+
+export interface studentAttendance_type {
+    id: number;
+    student_id: number;
+
+    time_in: string;
+    time_out: string;
+};  

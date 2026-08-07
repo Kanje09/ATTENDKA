@@ -1,11 +1,14 @@
 {
   "dependencies": {
+    "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.14",
+    "pg": "^8.22.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^26.1.2",
+    "@types/pg": "^8.20.4",
     "tsx": "^4.23.7",
     "typescript": "^7.0.2"
   },

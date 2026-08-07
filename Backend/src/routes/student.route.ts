@@ -10,4 +10,4 @@
 // router.put("/", putStudentAuth);
 // router.delete("/", deleteStudentAuth);
 
-// export default router;
+// export default router; q3    
