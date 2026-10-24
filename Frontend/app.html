@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PTCI Attendance Management</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+
+<body>
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+    <button type="button" class="sb-toggle" id="sbToggle" aria-label="Collapse sidebar"><svg class="ico"
+        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+        stroke-linejoin="round" aria-hidden="true">
+        <path d="M15 18l-6-6 6-6" />
+      </svg></button>
+
+    <div class="brand">
+      <img src="images/ptci-logo.png" alt="PTCI Logo" class="brand-img" onerror="this.style.display='none'">
+      <div class="brand-text">
+        <h1>ATTENDKA?</h1>
+        <span>Attendance Management</span>
+      </div>
+    </div>
+
+    <div class="sb-user">
+      <div class="sb-avatar" id="avatar">A</div>
+      <div class="user-meta">
+        <strong id="userName">System Administrator</strong>
+        <span id="userRole">Admin</span>
+      </div>
+      <span class="chev"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M6 9l6 6 6-6" />
+        </svg></span>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-section">MENU</div>
+      <button type="button" class="nav-item active" data-page="dashboard" title="Dashboard">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+          stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="3" width="7" height="9" rx="1.5" />
+          <rect x="14" y="3" width="7" height="5" rx="1.5" />
+          <rect x="14" y="12" width="7" height="9" rx="1.5" />
+          <rect x="3" y="16" width="7" height="5" rx="1.5" />
+        </svg><span class="label">Dashboard</span>
+      </button>
+      <button type="button" class="nav-item" data-page="event-management" id="eventsNav" title="Events">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <rect x="3" y="5" width="18" height="16" rx="2" />
+          <path d="M3 10h18M8 3v4M16 3v4" />
+        </svg><span class="label">Events</span>
+      </button>
+      <button type="button" class="nav-item" data-page="rfid-management" id="rfidNav" title="RFID devices">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <path d="M8 8a6 6 0 0 0 0 8M5 5a10 10 0 0 0 0 14M16 8a6 6 0 0 1 0 8M19 5a10 10 0 0 1 0 14M12 10v4" />
+        </svg><span class="label">RFID Devices</span>
+      </button>
+      <button type="button" class="nav-item" data-page="accounts-management" id="accountsNav" title="Accounts">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <circle cx="9" cy="8" r="3" />
+          <path d="M3 20v-1a6 6 0 0 1 12 0v1M17 8h4M19 6v4" />
+        </svg><span class="label">Accounts</span>
+      </button>
+      <button type="button" class="nav-item" data-page="student-photos" id="studentPhotosNav" title="Student photos">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="16" rx="2" />
+          <circle cx="9" cy="10" r="2" />
+          <path d="m21 15-5-5L5 20" />
+        </svg><span class="label">Student Photos</span>
+      </button>
+      <button type="button" class="nav-item" data-page="student-directory" id="studentDirectoryNav"
+        title="Student directory">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <circle cx="9" cy="8" r="3" />
+          <path d="M3 20v-1a6 6 0 0 1 12 0v1M17 8h4M17 12h4M17 16h4" />
+        </svg><span class="label">Student Directory</span>
+      </button>
+      <button type="button" class="nav-item" data-page="masterlists" id="masterlistsNav" title="Masterlists">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <path d="M4 4h16v16H4zM8 8h8M8 12h8M8 16h5" />
+        </svg><span class="label">Masterlists</span>
+      </button>
+      <button type="button" class="nav-item" data-page="team-adviser" id="teamAdviserNav" title="Team adviser">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <circle cx="9" cy="8" r="3" />
+          <path d="M3 20v-1a6 6 0 0 1 12 0v1M16 5a3 3 0 0 1 0 6M18 14a5 5 0 0 1 3 5v1" />
+        </svg><span class="label">Team Adviser</span>
+      </button>
+      <button type="button" class="nav-item" data-page="attendance" title="Course Attendance">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+          stroke-linejoin="round" aria-hidden="true">
+          <rect x="5" y="4" width="14" height="17" rx="2" />
+          <path d="M9 4h6v3H9z" />
+          <path d="M9 12h6M9 16h4" />
+        </svg><span class="label">Course Attendance</span>
+      </button>
+      <button type="button" class="nav-item" data-page="calendar" title="Attendance checklist">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+          stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="5" width="18" height="16" rx="2" />
+          <path d="M3 10h18M8 3v4M16 3v4" />
+        </svg><span class="label">School calendar</span>
+      </button>
+      <button type="button" class="nav-item" data-page="student-events" id="studentEventsNav" title="Upcoming events">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <path d="M5 4h14v17H5zM8 2v4M16 2v4M8 10h8M8 14h5" />
+        </svg><span class="label">My Events</span>
+      </button>
+
+      <div class="nav-gap"></div>
+      <button type="button" class="nav-item" data-page="reports" title="Reports">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+          stroke-linejoin="round" aria-hidden="true">
+          <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+          <path d="M14 3v5h5" />
+          <path d="M9 17v-3M12 17v-5M15 17v-2" />
+        </svg><span class="label">Reports</span>
+      </button>
+      <button type="button" class="nav-item" data-page="settings" id="settingsNav" title="Settings">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+          stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" />
+        </svg><span class="label">Settings</span>
+      </button>
+      <button type="button" class="nav-item" id="liveDisplayLink" title="Open live attendance display"
+        onclick="window.open('attendance-display.html', 'attendka-live-display')">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+          stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="13" rx="2" />
+          <path d="M8 21h8M12 17v4M7 9h10M7 12h6" />
+        </svg><span class="label">Live Check-in</span>
+      </button>
+    </nav>
+
+    <div class="nav-footer">
+      <button type="button" class="nav-item" onclick="logout()" title="Sign out">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+          stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 3v9" />
+          <path d="M6.4 6.6a8 8 0 1 0 11.2 0" />
+        </svg><span class="label">Sign out</span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="search">
+        <span>🔍</span>
+        <input type="search" id="search" name="search" placeholder="Search students, classes.."
+          aria-label="Search students and classes">
+      </div>
+      <div class="user-area">
+        <span class="user-role-label">Attendance portal</span>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <div class="page" id="admin">
+        <div class="page-header">
+          <div>
+            <h2>Admin</h2>
+            <div class="sub">Admin management panel — update <span id="time">01:08 PM</span></div>
+          </div>
+
+          <div class="page" id="event-management">
+            <div class="page-header">
+              <div>
+                <h2>Events</h2>
+                <div class="sub">Create events and manage event lifecycle and venue.</div>
+              </div>
+            </div>
+            <div class="api-admin-grid" id="eventManagementContent"></div>
+          </div>
+          <div class="page" id="rfid-management">
+            <div class="page-header">
+              <div>
+                <h2>RFID devices</h2>
+                <div class="sub">Register readers, assign student cards, and choose check-in/out mode.</div>
+              </div>
+            </div>
+            <div class="api-admin-grid" id="rfidManagementContent"></div>
+            <section class="panel reader-status-panel">
+              <div class="panel-header">
+                <h3>RFID check-in status</h3>
+              </div>
+              <p class="sub">Reader enabled means the ESP32 can send scans. Automatic mode requires an event marked ongoing. Manual time in opens the assigned event through its end time, even if it is still pending.</p>
+              <div class="api-user-list" id="rfidReaderStatusList">Loading readers…</div>
+              <p class="api-message" id="rfidReaderStatusMessage" role="status"></p>
+            </section>
+            <section class="panel" id="rfidAssignmentPageSlot"></section>
+          </div>
+          <div class="page" id="accounts-management">
+            <div class="page-header">
+              <div>
+                <h2>Accounts and departments</h2>
+                <div class="sub">Create staff, manage departments, and find accounts.</div>
+              </div>
+            </div>
+            <div class="api-admin-grid" id="accountsManagementContent"></div>
+            <section class="panel" id="teacherAssignmentPanel">
+              <h3>Assign department and year to a teacher</h3>
+              <div class="api-form">
+                <label for="managedTeacher">Teacher</label><select id="managedTeacher">
+                  <option value="">Select teacher</option>
+                </select>
+                <label for="managedDepartment">Department</label><select id="managedDepartment">
+                  <option value="">Select department</option>
+                </select>
+                <label for="managedYear">Year level managed</label><select id="managedYear">
+                  <option value="">All year levels</option>
+                  <option value="1">Year 1</option>
+                  <option value="2">Year 2</option>
+                  <option value="3">Year 3</option>
+                  <option value="4">Year 4</option>
+                </select>
+                <button type="button" class="btn primary" id="saveTeacherAssignment">Save assignment</button>
+                <p class="api-message" id="teacherAssignmentMessage" role="status"></p>
+              </div>
+            </section>
+          </div>
+          <div class="page" id="student-photos">
+            <div class="page-header">
+              <div>
+                <h2>Student photos</h2>
+                <div class="sub">Set a local-browser photo for each student.</div>
+              </div>
+            </div>
+            <div class="api-admin-grid" id="studentPhotosContent"></div>
+          </div>
+          <div class="page" id="student-events">
+            <div class="page-header">
+              <div>
+                <h2>Upcoming events</h2>
+                <div class="sub">View upcoming school events and their latest status.</div>
+              </div>
+            </div>
+            <section class="panel">
+              <div class="api-user-list" id="studentUpcomingEvents">Loading upcoming events…</div>
+            </section>
+          </div>
+          <div class="page" id="student-directory">
+            <div class="page-header">
+              <div>
+                <h2>Student directory</h2>
+                <div class="sub">Search by department, year level, student number, or name.</div>
+              </div>
+            </div>
+            <section class="panel">
+              <div class="students-bar">
+                <input id="directorySearch" type="search" placeholder="Search student name or ID">
+                <select id="directoryDepartment">
+                  <option value="">All departments</option>
+                </select>
+                <select id="directoryYear">
+                  <option value="">All year levels</option>
+                </select>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Student</th>
+                      <th>Student ID</th>
+                      <th>Department</th>
+                      <th>Year</th>
+                      <th>Section</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="directoryRows">
+                    <tr>
+                      <td colspan="6" class="empty">Loading students…</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+            <section class="panel" id="studentEditPanel" hidden>
+              <h3>Edit student details</h3>
+              <form id="studentEditForm" class="api-form">
+                <input id="editStudentId" type="hidden">
+                <div class="api-form-row">
+                  <div><label for="editStudentFirst">First name</label><input id="editStudentFirst" required
+                      maxlength="80"></div>
+                  <div><label for="editStudentLast">Last name</label><input id="editStudentLast" required
+                      maxlength="80"></div>
+                </div>
+                <div class="api-form-row">
+                  <div><label for="editStudentMiddle">Middle name</label><input id="editStudentMiddle" maxlength="80">
+                  </div>
+                  <div><label for="editStudentEmail">Email</label><input id="editStudentEmail" type="email"
+                      maxlength="150"></div>
+                </div>
+                <div class="api-form-row">
+                  <div><label for="editStudentNo">Student ID</label><input id="editStudentNo" required maxlength="30">
+                  </div>
+                  <div><label for="editStudentDepartment">Department</label><select id="editStudentDepartment" required>
+                      <option value="">Select department</option>
+                    </select></div>
+                </div>
+                <div class="api-form-row">
+                  <div><label for="editStudentYear">Year level</label><input id="editStudentYear" type="number" min="1"
+                      max="10" required></div>
+                  <div><label for="editStudentSection">Section</label><input id="editStudentSection" maxlength="30">
+                  </div>
+                </div>
+                <button class="btn primary" type="submit">Save student</button><button class="btn"
+                  id="cancelStudentEdit" type="button">Cancel</button>
+                <p class="api-message" id="studentEditMessage" role="status"></p>
+              </form>
+            </section>
+          </div>
+          <div class="header-actions">
+            <button class="btn primary" type="button"
+              onclick="window.open('attendance-display.html', 'attendka-live-display')">Open Live Check-in</button>
+          </div>
+        </div>
+
+        <div class="api-admin-grid">
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Create department</h3>
+            </div>
+            <form id="departmentForm" class="api-form">
+              <label for="departmentCode">Department code</label>
+              <input id="departmentCode" name="code" maxlength="10" placeholder="BSIT" required>
+              <label for="departmentName">Department name</label>
+              <input id="departmentName" name="name" maxlength="150" required>
+              <button class="btn primary" type="submit">Add department</button>
+            </form>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Create teacher or admin account</h3>
+            </div>
+            <form id="staffForm" class="api-form">
+              <label for="staffRole">Role</label>
+              <select id="staffRole" required>
+                <option value="teacher">Teacher</option>
+                <option value="admin">Administrator</option>
+              </select>
+              <div class="api-form-row">
+                <div><label for="staffFirst">First name</label><input id="staffFirst" required maxlength="80"></div>
+                <div><label for="staffLast">Last name</label><input id="staffLast" required maxlength="80"></div>
+              </div>
+              <label for="staffUsername">Username</label><input id="staffUsername" required minlength="3"
+                maxlength="50">
+              <label for="staffEmail">Email</label><input id="staffEmail" type="email" maxlength="150">
+              <label for="staffPassword">Temporary password</label><input id="staffPassword" type="password" required
+                minlength="8" maxlength="200" autocomplete="new-password">
+              <div id="teacherFields">
+                <label for="staffEmployeeNo">Employee number</label><input id="staffEmployeeNo" maxlength="30">
+                <label for="staffDepartment">Department</label><select id="staffDepartment">
+                  <option value="">Select department</option>
+                </select>
+                <label for="staffYearLevel">Year level managed (optional)</label><select id="staffYearLevel">
+                  <option value="">All year levels</option>
+                  <option value="1">Year 1</option>
+                  <option value="2">Year 2</option>
+                  <option value="3">Year 3</option>
+                  <option value="4">Year 4</option>
+                </select>
+              </div>
+              <div id="adminFields" hidden>
+                <label for="staffPosition">Position</label><input id="staffPosition" maxlength="100"
+                  placeholder="System Administrator">
+              </div>
+              <button class="btn primary" type="submit">Create account</button>
+              <p class="api-message" id="staffMessage" role="status"></p>
+            </form>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Register RFID reader</h3>
+            </div>
+            <form id="readerForm" class="api-form">
+              <label for="readerName">Reader name</label><input id="readerName" maxlength="80" required
+                placeholder="Main Entrance">
+              <label for="readerLocation">Location</label><input id="readerLocation" maxlength="150"
+                placeholder="School entrance">
+              <button class="btn primary" type="submit">Create reader</button>
+              <p class="api-message" id="readerMessage" role="status"></p>
+            </form>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Assign RFID card to a student</h3>
+            </div>
+            <form id="cardForm" class="api-form">
+              <label for="cardStudentId">Student</label><select id="cardStudentId" required>
+                <option value="">Select student</option>
+              </select>
+              <label for="cardUid">Card UID</label><input id="cardUid" maxlength="50" required
+                placeholder="Read UID from the RFID reader">
+              <button class="btn primary" type="submit">Assign card</button>
+              <p class="api-message" id="cardMessage" role="status"></p>
+            </form>
+            <div class="api-user-list rfid-card-list" id="rfidCardList">Loading assigned cards…</div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Set student photo</h3>
+            </div>
+            <form id="studentPhotoFileForm" class="api-form">
+              <p class="sub">Choose a database student, then select a photo or enter an existing filename.</p>
+              <label for="photoStudent">Student</label>
+              <select id="photoStudent" required>
+                <option value="">Select a student</option>
+              </select>
+              <label for="studentPhotoFile">Choose photo</label>
+              <input id="studentPhotoFile" type="file" accept="image/*">
+              <label for="studentPhotoFilename">Or existing photo filename</label>
+              <input id="studentPhotoFilename" type="text" maxlength="255" placeholder="e.g. student-photo.jpg">
+              <div class="student-photo-preview" id="studentPhotoPreview" aria-live="polite">Photo preview</div>
+              <button class="btn primary" type="submit">Save student photo</button>
+              <button class="btn" type="button" id="removeStudentPhoto">Remove photo</button>
+              <p class="api-message" id="studentPhotoMessage" role="status" aria-live="polite"></p>
+            </form>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Create attendance event</h3>
+            </div>
+            <form id="eventForm" class="api-form">
+              <label for="eventTitle">Event title</label><input id="eventTitle" maxlength="200" required>
+              <label for="eventVenue">Venue</label><input id="eventVenue" maxlength="150" placeholder="Event venue">
+              <label for="eventType">Event type</label>
+              <select id="eventType" required>
+                <option value="academic">Academic</option>
+                <option value="seminar">Seminar</option>
+                <option value="sports">Sports</option>
+                <option value="intramurals">Intramurals</option>
+                <option value="meeting">Meeting</option>
+                <option value="other">Other</option>
+              </select>
+              <div class="api-form-row">
+                <div><label for="eventStart">Start</label><input id="eventStart" type="datetime-local" required></div>
+                <div><label for="eventEnd">End</label><input id="eventEnd" type="datetime-local" required></div>
+              </div>
+              <label for="eventDepartment">Department (blank means school-wide)</label><select id="eventDepartment">
+                <option value="">School-wide</option>
+              </select>
+              <label for="eventPoints">Attendance points</label><input id="eventPoints" type="number" min="0" step="1"
+                value="0">
+              <button class="btn primary" type="submit">Create event</button>
+              <p class="api-message" id="eventMessage" role="status"></p>
+            </form>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Accounts</h3><button type="button" class="btn" id="reloadUsers">Refresh</button>
+            </div>
+            <div class="api-user-list" id="adminUserList" aria-live="polite">Loading accounts…</div>
+          </section>
+
+        </div>
+
+        <div class="stats">
+          <div class="stat-card">
+            <div class="icon-wrap blue">👥</div>
+            <div class="value">31</div>
+            <div class="label">Total Students</div>
+          </div>
+          <div class="stat-card">
+            <div class="icon-wrap green">📋</div>
+            <div class="value">85.0%</div>
+            <div class="label">Total Attendance</div>
+            <div class="change up">21.4 vs last week</div>
+          </div>
+          <div class="stat-card">
+            <div class="icon-wrap purple">📚</div>
+            <div class="value">20</div>
+            <div class="label">Events In Progress</div>
+          </div>
+          <div class="stat-card">
+            <div class="icon-wrap orange">⚠</div>
+            <div class="value">—</div>
+            <div class="label">Late Today</div>
+          </div>
+        </div>
+
+        <div class="charts">
+          <div class="panel">
+            <div class="panel-header">
+              <h3>Attendance Heat Map · Last 30 days</h3>
+              <span class="date">October 2026</span>
+            </div>
+            <div class="heat-bars attendance-status-bars">
+              <div class="bar-row">
+                <div class="bar-label" style="background:#22c55e"></div>
+                <div class="bar-track">
+                  <div class="bar-fill" style="width:72%;background:#22c55e"></div>
+                </div>
+              </div>
+              <div class="bar-row">
+                <div class="bar-label" style="background:#3b82f6"></div>
+                <div class="bar-track">
+                  <div class="bar-fill" style="width:88%;background:#3b82f6"></div>
+                </div>
+              </div>
+              <div class="bar-row">
+                <div class="bar-label" style="background:#eab308"></div>
+                <div class="bar-track">
+                  <div class="bar-fill" style="width:45%;background:#eab308"></div>
+                </div>
+              </div>
+              <div class="bar-row">
+                <div class="bar-label" style="background:#ef4444"></div>
+                <div class="bar-track">
+                  <div class="bar-fill" style="width:38%;background:#ef4444"></div>
+                </div>
+              </div>
+              <div class="bar-row">
+                <div class="bar-label" style="background:#22c55e"></div>
+                <div class="bar-track">
+                  <div class="bar-fill" style="width:65%;background:#22c55e"></div>
+                </div>
+              </div>
+            </div>
+            <div class="legend">
+              <span><i class="dot" style="background:#3b82f6"></i> Present</span>
+              <span><i class="dot" style="background:#ef4444"></i> Absent</span>
+              <span><i class="dot" style="background:#eab308"></i> Late</span>
+              <span><i class="dot" style="background:#22c55e"></i> Excuse</span>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <h3>Weekly Attendance</h3>
+              <span class="date">Present Profile</span>
+            </div>
+            <div class="weekly-grid">
+              <div class="student-card">
+                <div class="student-avatar">👤</div>
+                <div class="student-info">Rowy Neo<span>BSIT - S1</span></div>
+              </div>
+              <div class="student-card">
+                <div class="student-avatar">👤</div>
+                <div class="student-info">Michelle T.<span>BSIT - S1</span></div>
+              </div>
+              <div class="student-card">
+                <div class="student-avatar">👤</div>
+                <div class="student-info">Marnie P.<span>BSIT - S1</span></div>
+              </div>
+              <div class="student-card">
+                <div class="student-avatar">👤</div>
+                <div class="student-info">Anderson R.<span>1st Year</span></div>
+              </div>
+              <div class="student-card">
+                <div class="student-avatar">👤</div>
+                <div class="student-info">Belinario M.<span>2nd Year</span></div>
+              </div>
+              <div class="student-card">
+                <div class="student-avatar">👤</div>
+                <div class="student-info">Trinidad M.<span>3rd Year</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="page" id="masterlists">
+        <div class="page-header">
+          <div>
+            <h2>Department masterlists</h2>
+            <div class="sub">Build department rosters and assign selected students to teams.</div>
+          </div>
+        </div>
+        <div class="api-admin-grid">
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Create masterlist</h3>
+            </div>
+            <form id="masterlistForm" class="api-form">
+              <label for="masterlistDepartment">Department</label><select id="masterlistDepartment" required>
+                <option value="">Select department</option>
+              </select>
+              <div class="api-form-row">
+                <div><label for="masterlistYear">School year</label><input id="masterlistYear" required
+                    pattern="[0-9]{4}-[0-9]{4}" placeholder=" 2025-2026"></div>
+                <div><label for="masterlistSemester">Semester</label><select id="masterlistSemester">
+                    <option value="1st">1st</option>
+                    <option value="2nd">2nd</option>
+                    <option value="summer">Summer</option>
+                  </select></div>
+              </div>
+              <button class="btn primary" type="submit">Create masterlist</button>
+              <button class="btn" type="button" id="updateMasterlist">Update selected masterlist</button>
+              <p class="api-message" id="masterlistMessage" role="status"></p>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Add students to masterlist</h3>
+            </div>
+            <div class="api-form">
+              <label for="masterlistSelect">Masterlist</label><select id="masterlistSelect">
+                <option value="">Select masterlist</option>
+              </select>
+              <div class="masterlist-filters">
+                <input type="search" id="masterlistCandidateSearch" placeholder="Search students in this department">
+                <select id="masterlistCandidateYear">
+                  <option value="">All year levels</option>
+                </select>
+              </div>
+              <div id="masterlistCandidates" class="api-user-list">Choose a masterlist to load students.</div>
+              <button type="button" class="btn primary" id="saveMasterlistStudents">Save selected students</button>
+              <button type="button" class="btn" id="removeMasterlistStudents">Remove selected students</button>
+              <p class="api-message" id="masterlistStudentsMessage" role="status"></p>
+            </div>
+          </section>
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Create team</h3>
+            </div>
+            <form id="teamForm" class="api-form">
+              <label for="teamName">Team name</label><input id="teamName" maxlength="100" required>
+              <label for="teamSchoolYear">School year</label><input id="teamSchoolYear" pattern="[0-9]{4}-[0-9]{4}"
+                placeholder="2025-2026" required>
+              <button class="btn primary" type="submit">Create team</button>
+              <p class="api-message" id="teamMessage" role="status"></p>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Assign team members and adviser</h3>
+            </div>
+            <div class="api-form">
+              <label for="teamSelect">Team</label><select id="teamSelect">
+                <option value="">Select team</option>
+              </select>
+              <label for="teamMasterlistSelect">Source masterlist</label><select id="teamMasterlistSelect">
+                <option value="">Select masterlist</option>
+              </select>
+              <div class="masterlist-filters">
+                <input type="search" id="teamCandidateSearch" placeholder="Search name or student ID">
+                <select id="teamCandidateYear">
+                  <option value="">All year levels</option>
+                </select>
+              </div>
+              <div id="teamCandidates" class="api-user-list">Choose a masterlist to select students.</div>
+              <button type="button" class="btn primary" id="assignTeamMembers">Add selected students</button>
+              <label for="teamAdviser">Team adviser</label><select id="teamAdviser">
+                <option value="">Select teacher</option>
+              </select>
+              <button type="button" class="btn" id="assignTeamAdviser">Assign adviser</button>
+              <p class="api-message" id="teamAssignmentMessage" role="status"></p>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div class="page" id="team-adviser">
+        <div class="page-header">
+          <div>
+            <h2>Team adviser</h2>
+            <div class="sub">Teams assigned to you and their attendance.</div>
+          </div>
+        </div>
+        <section class="panel">
+          <label for="advisoryTeam">My teams</label>
+          <select id="advisoryTeam">
+            <option value="">Select an assigned team</option>
+          </select>
+          <input type="search" id="advisoryTeamSearch" placeholder="Search team student name or student ID"
+            aria-label="Search team roster">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Event</th>
+                  <th>Student</th>
+                  <th>Student ID</th>
+                  <th>Time in</th>
+                  <th>Time out</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="advisoryTeamRows">
+                <tr>
+                  <td colspan="6" class="empty">Choose a team.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <div class="page" id="attendance">
+        <div class="page-header">
+          <div>
+            <h2>Course Attendance</h2>
+            <div class="sub">Attendance from your database — mark absent or excused records as needed.</div>
+          </div>
+          <div class="header-actions">
+            <label for="attendanceMonth">Month</label><input id="attendanceMonth" type="month">
+            <label for="attendanceEvent">Event</label><select id="attendanceEvent">
+              <option value="">All events</option>
+            </select>
+          </div>
+        </div>
+        <section class="panel table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Event</th>
+                <th>Student</th>
+                <th>Student ID</th>
+                <th>Year</th>
+                <th>Status</th>
+                <th>Excuse / remarks</th>
+                <th>Time in</th>
+                <th>Time out</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="attendanceTableRows">
+              <tr>
+                <td colspan="9" class="empty">Choose a month to load attendance.</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="api-message" id="attendanceMessage" role="status"></p>
+        </section>
+      </div>
+
+
+      <div class="page" id="reports">
+        <div class="page-header">
+          <div>
+            <h2>Reports</h2>
+            <div class="sub">Attendance analytics &amp; summaries</div>
+            <div class="sub live">Real-time attendance overview – updated <span id="clock">01:07 PM</span></div>
+          </div>
+          <div class="header-actions">
+            <label for="reportFrom">From</label><input id="reportFrom" type="date">
+            <label for="reportTo">To</label><input id="reportTo" type="date">
+            <button class="btn primary" type="button" id="generateReport">Generate report</button>
+            <button class="btn" type="button" id="exportReport">Download Excel CSV</button>
+          </div>
+        </div>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h3>Attendance summary</h3><span class="date" id="reportRange"></span>
+          </div>
+          <div class="report-cards">
+            <div class="report-card">
+              <div class="lbl">Attendance rate</div>
+              <div class="num green" id="reportRate">—</div>
+            </div>
+            <div class="report-card">
+              <div class="lbl">Present / Late</div>
+              <div class="num blue" id="reportPresent">—</div>
+            </div>
+            <div class="report-card">
+              <div class="lbl">Absent</div>
+              <div class="num red" id="reportAbsent">—</div>
+            </div>
+            <div class="report-card">
+              <div class="lbl">Excused</div>
+              <div class="num" id="reportExcused">—</div>
+            </div>
+          </div>
+          <div class="students-bar">
+            <strong>Filter attendance:</strong>
+            <select id="fYear" aria-label="Year level">
+              <option value="">All year levels</option>
+              <option value="1">1st year</option>
+              <option value="2">2nd year</option>
+              <option value="3">3rd year</option>
+              <option value="4">4th year</option>
+            </select>
+            <select id="fCourse" aria-label="Department">
+              <option value="">All departments</option>
+            </select>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Event</th>
+                  <th>Student</th>
+                  <th>Student ID</th>
+                  <th>Department</th>
+                  <th>Year</th>
+                  <th>Status</th>
+                  <th>Time in</th>
+                  <th>Time out</th>
+                </tr>
+              </thead>
+              <tbody id="reportRows">
+                <tr>
+                  <td colspan="8" class="empty">Choose a date range and generate the report.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="api-message" id="reportMessage" role="status"></p>
+        </section>
+
+        <!-- Student profile -->
+        <section class="panel profile" aria-label="Student profile">
+          <div class="avatar" role="img" aria-label="Student photo"></div>
+          <div class="profile-grid">
+            <div><label for="sname">Student Name:</label><input id="sname" type="text"></div>
+            <div><label for="sid">ID No. :</label><input id="sid" type="text"></div>
+            <div><label for="scourse">Course/Program :</label>
+              <select id="scourse">
+                <option value=""></option>
+                <option>BSIT</option>
+                <option>BSBA</option>
+                <option>BSED</option>
+              </select>
+            </div>
+            <div><label for="sbatch">Batch Year:</label>
+              <select id="sbatch">
+                <option value=""></option>
+                <option>2024</option>
+                <option>2025</option>
+                <option>2026</option>
+              </select>
+            </div>
+            <div><label for="sadviser">Class adviser :</label><input id="sadviser" type="text"></div>
+          </div>
+        </section>
+
+        <!-- Stat cards + Events -->
+        <div class="grid-top">
+          <div class="stat">
+            <div class="icon">👥</div>
+            <div class="big">31</div>
+            <div class="t">Total Students</div>
+          </div>
+          <div class="stat">
+            <div class="icon">📋</div>
+            <div class="s pct-top">95.3%</div>
+            <div class="t">Total Attendance</div>
+            <div class="s">30.5 vs last week</div>
+          </div>
+          <div class="stat">
+            <div class="icon">📒</div>
+            <div class="big">28</div>
+            <div class="t">Events In Progress</div>
+          </div>
+          <aside class="events" aria-label="Events progress">
+            <h3>Events Progress</h3>
+            <div class="ev"><span class="dot"></span>
+              <div class="info"><b>First day</b>
+                <div class="meter"><i style="width:100%"></i></div>
+              </div><span class="count">✔</span>
+            </div>
+            <div class="ev"><span class="dot"></span>
+              <div class="info"><b>First Week</b>
+                <div class="meter"><i style="width:66%"></i></div>
+              </div><span class="count">4/6</span>
+            </div>
+            <div class="ev"><span class="dot"></span>
+              <div class="info"><b>Events</b>
+                <div class="meter"><i style="width:35%"></i></div>
+              </div><span class="count">0/1</span>
+            </div>
+            <div class="ev"><span class="dot"></span>
+              <div class="info"><b>Events</b>
+                <div class="meter"><i style="width:6%"></i></div>
+              </div><span class="count">0/1</span>
+            </div>
+          </aside>
+        </div>
+
+
+        <div class="grid-mid">
+          <div class="stat alert">
+            <div class="icon">⚠️</div>
+            <div class="big">29</div>
+            <div class="t">Active Alerts</div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <h3>Attendance Heat Map Results</h3><span class="date">October 2026</span>
+            </div>
+            <div class="heat-bars">
+              <div class="bar-row"><span class="week-label">Present</span>
+                <div class="bar-track">
+                  <div class="bar-fill" style="width:88%;background:#16a34a"></div>
+                </div><span class="pct">88%</span>
+              </div>
+              <div class="bar-row"><span class="week-label">Late</span>
+                <div class="bar-track">
+                  <div class="bar-fill" style="width:96%;background:#eab308"></div>
+                </div><span class="pct">96%</span>
+              </div>
+              <div class="bar-row"><span class="week-label">Excused</span>
+                <div class="bar-track">
+                  <div class="bar-fill" style="width:76%;background:#1e3a8a"></div>
+                </div><span class="pct">76%</span>
+              </div>
+              <div class="bar-row"><span class="week-label">Absent</span>
+                <div class="bar-track">
+                  <div class="bar-fill" style="width:75%;background:#dc2626"></div>
+                </div><span class="pct">75%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+        <div class="report-cards">
+          <div class="report-card">
+            <div class="lbl">Overall Attendance</div>
+            <div class="num green">85.0%</div>
+            <div class="lbl">This month</div>
+          </div>
+          <div class="report-card">
+            <div class="lbl">Students at Risk</div>
+            <div class="num red">4</div>
+            <div class="lbl">Below 75%</div>
+          </div>
+          <div class="report-card">
+            <div class="lbl">Perfect Attendance</div>
+            <div class="num blue">11</div>
+            <div class="lbl">This semester</div>
+          </div>
+        </div>
+
+
+        <div class="panel">
+          <div class="panel-header">
+            <h3>Monthly Breakdown</h3><span class="date">October 2026</span>
+          </div>
+          <div class="heat-bars narrow">
+            <div class="bar-row"><span class="week-label">Week 1</span>
+              <div class="bar-track">
+                <div class="bar-fill" style="width:92%;background:#22c55e"></div>
+              </div>
+            </div>
+            <div class="bar-row"><span class="week-label">Week 2</span>
+              <div class="bar-track">
+                <div class="bar-fill" style="width:81%;background:#3b82f6"></div>
+              </div>
+            </div>
+            <div class="bar-row"><span class="week-label">Week 3</span>
+              <div class="bar-track">
+                <div class="bar-fill" style="width:76%;background:#eab308"></div>
+              </div>
+            </div>
+            <div class="bar-row"><span class="week-label">Week 4</span>
+              <div class="bar-track">
+                <div class="bar-fill" style="width:88%;background:#22c55e"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+        <div class="panel table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th><span>Student</span></th>
+                <th><span>Student ID</span></th>
+                <th><span>Year level</span></th>
+                <th><span>Department</span></th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="page" id="calendar">
+        <div class="page-header">
+          <div>
+            <h2>School calendar</h2>
+            <div class="sub">View upcoming school events. Administrators can edit, move, or remove events.</div>
+          </div>
+        </div>
+        <section class="panel" id="schoolCalendarControls">
+          <div class="header-actions">
+            <label for="schoolCalendarMonth">Month</label><input id="schoolCalendarMonth" type="month">
+          </div>
+          <p class="sub">Events for the selected month. Event details and status updates are managed by the administration.</p>
+          <div id="schoolCalendarEvents" class="school-calendar-events" aria-live="polite">Loading school events…</div>
+          <p class="api-message" id="schoolCalendarMessage" role="status"></p>
+        </section>
+        <section class="panel calendar-events">
+          <div class="panel-header">
+            <h3>School events</h3><span class="date">From the attendance database</span>
+          </div>
+          <div class="api-user-list" id="eventList">Loading events…</div>
+          <p class="api-message" id="eventCalendarMessage" role="status"></p>
+        </section>
+        <section class="panel" id="rfidEventAssignment">
+          <div class="panel-header">
+            <h3>Choose event for RFID reader</h3>
+          </div>
+          <div class="api-form">
+            <p class="sub">Set which event a reader should record on the selected date. This overrides automatic event
+              selection for that reader and day. This protected admin action uses your active dashboard session;
+              opening its API URL directly does not send your login token.</p>
+            <label for="rfidAssignmentDate">Attendance date</label><input id="rfidAssignmentDate" type="date">
+            <label for="rfidReader">Reader</label><select id="rfidReader">
+              <option value="">Select active reader</option>
+            </select>
+            <label for="rfidEvent">Event</label><select id="rfidEvent">
+              <option value="">Select event</option>
+            </select>
+            <label for="rfidAttendanceMode">Reader mode</label>
+            <select id="rfidAttendanceMode">
+              <option value="auto">Automatic (event becomes done = time out)</option>
+              <option value="time_in">Manual time in (open attendance)</option>
+              <option value="time_out">Manual time out</option>
+            </select>
+            <button class="btn primary" type="button" id="saveRfidEventAssignment">Assign event to reader</button>
+            <p class="api-message" id="rfidEventMessage" role="status"></p>
+          </div>
+        </section>
+      </div>
+
+      <div class="page" id="settings">
+        <div class="page-header">
+          <div>
+            <h2>Settings</h2>
+            <div class="sub">Profile &amp; account settings</div>
+          </div>
+        </div>
+
+        <div class="settings-layout">
+          <div class="settings-menu">
+            <button type="button" class="settings-btn active" data-tab="paneProfile"><span>👤</span> Profile
+              Settings</button>
+            <button type="button" class="settings-btn" data-tab="panePassword"><span>🔒</span> Password</button>
+          </div>
+
+          <div class="settings-form panel">
+            <div class="settings-pane active" id="paneProfile">
+              <div class="avatar-section">
+                <div class="big-avatar"><span id="bigAvatar">A</span></div>
+                <div class="avatar-actions">
+                  <label class="btn primary" for="avatarFile">Choose avatar</label>
+                  <input id="avatarFile" type="file" accept="image/*" hidden>
+                  <button type="button" class="btn" id="deleteAvatar">Delete avatar</button>
+                </div>
+              </div>
+
+              <form id="profileForm">
+                <div class="form-row">
+                  <div class="form-group"><label for="setFirst">First Name *</label><input type="text" id="setFirst"
+                      placeholder="First Name" required></div>
+                  <div class="form-group"><label for="setLast">Last Name</label><input type="text" id="setLast"
+                      placeholder="Last Name"></div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group"><label for="setEmail">Email</label><input type="email" id="setEmail"
+                      placeholder="Email"></div>
+                </div>
+                <div class="form-row">
+                </div>
+                <button type="submit" class="btn primary save-btn">Save changes</button>
+                <p class="api-message" id="profileMessage" role="status"></p>
+              </form>
+            </div>
+
+            <div class="settings-pane" id="panePassword">
+              <form id="passwordForm">
+                <div class="form-group full"><label for="pwOld">Current password</label><input type="password"
+                    id="pwOld" autocomplete="current-password" required></div>
+                <div class="form-group full"><label for="pwNew">New password</label><input type="password" id="pwNew"
+                    autocomplete="new-password" minlength="8" required></div>
+                <div class="form-group full"><label for="pwConfirm">Confirm new password</label><input type="password"
+                    id="pwConfirm" autocomplete="new-password" required></div>
+                <button type="submit" class="btn primary save-btn">Update password</button>
+                <p class="api-message" id="passwordMessage" role="status"></p>
+              </form>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="page active" id="dashboard">
+        <div class="page-header">
+          <div>
+            <h2>Dashboard</h2>
+            <div class="sub">Overview of every section — updated <span id="time3">01:08 PM</span></div>
+          </div>
+          <div class="header-actions">
+            <button class="btn primary" type="button"
+              onclick="window.open('attendance-display.html', 'attendka-live-display')">Open Live Check-in</button>
+            <button class="btn" id="resetLiveAttendance" type="button">Reset live attendance</button>
+          </div>
+        </div>
+
+        <section class="panel student-dashboard" id="studentDashboard" hidden>
+          <div class="panel-header">
+            <h3>My attendance</h3>
+          </div>
+          <div class="student-summary">
+            <div><span>Total points</span><strong id="studentPoints">—</strong></div>
+            <div><span>Student number</span><strong id="studentNumber">—</strong></div>
+          </div>
+          <section class="student-contribution-panel" aria-labelledby="studentContributionHeading">
+            <div class="student-contribution-heading">
+              <div>
+                <h3 id="studentContributionHeading">Attendance contributions</h3>
+                <p>Daily points earned from attendance over the past year.</p>
+              </div>
+              <span id="studentContributionTotal"></span>
+            </div>
+            <div id="studentContributionGraph" class="student-contribution-graph" aria-label="Attendance points by day">
+              Loading attendance history…
+            </div>
+            <div class="student-contribution-legend" aria-hidden="true">
+              <span>Less</span><i class="level-0"></i><i class="level-1"></i><i class="level-2"></i><i class="level-3"></i><i class="level-4"></i><span>More</span>
+            </div>
+          </section>
+          <div class="api-user-list" id="studentEventList">Loading your events…</div>
+        </section>
+
+        <div class="stats">
+          <div class="stat-card">
+            <div class="icon-wrap blue">👥</div>
+            <div class="value">—</div>
+            <div class="label">Total Students</div>
+          </div>
+          <div class="stat-card">
+            <div class="icon-wrap green">📋</div>
+            <div class="value">—</div>
+            <div class="label">Total Attendance</div>
+          </div>
+          <div class="stat-card">
+            <div class="icon-wrap purple">📚</div>
+            <div class="value">—</div>
+            <div class="label">Events In Progress</div>
+          </div>
+          <div class="stat-card">
+            <div class="icon-wrap orange">⚠</div>
+            <div class="value">—</div>
+            <div class="label">Late Today</div>
+          </div>
+        </div>
+        <p class="api-message" id="dashboardMessage" role="status"></p>
+
+        <div class="charts dash-row">
+          <div class="panel">
+            <div class="panel-header">
+              <h3>Attendance Heat Map · Last 30 days</h3>
+              <button type="button" class="panel-link" data-goto="admin">Admin</button>
+            </div>
+            <div id="attendanceHeatMap" class="attendance-heatmap-grid" aria-label="Daily attendance check-ins for the last 30 days">
+              Loading attendance activity…
+            </div>
+            <div class="attendance-heatmap-legend" aria-hidden="true">
+              <span>Less</span><i class="heat-level-0"></i><i class="heat-level-1"></i><i class="heat-level-2"></i><i class="heat-level-3"></i><i class="heat-level-4"></i><span>More</span>
+            </div>
+            <div class="heat-bars attendance-status-bars">
+              <div class="bar-row" data-status="present"><span class="mini-label">Present</span>
+                <div class="bar-track">
+                  <div class="bar-fill" style="width:0%;background:#3b82f6"></div>
+                </div>
+                <span class="bar-count" id="dashPresent">—</span>
+              </div>
+              <div class="bar-row" data-status="late"><span class="mini-label">Late</span>
+                <div class="bar-track">
+                  <div class="bar-fill" style="width:0%;background:#eab308"></div>
+                </div>
+                <span class="bar-count" id="dashLate">—</span>
+              </div>
+              <div class="bar-row" data-status="excused"><span class="mini-label">Excused</span>
+                <div class="bar-track">
+                  <div class="bar-fill" style="width:0%;background:#22c55e"></div>
+                </div>
+                <span class="bar-count" id="dashExcused">—</span>
+              </div>
+              <div class="bar-row" data-status="absent"><span class="mini-label">Absent</span>
+                <div class="bar-track">
+                  <div class="bar-fill" style="width:0%;background:#ef4444"></div>
+                </div>
+                <span class="bar-count" id="dashAbsent">—</span>
+              </div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <h3>Upcoming events</h3>
+              <button type="button" class="panel-link" data-goto="attendance">Course Attendance</button>
+            </div>
+            <div class="api-user-list" id="dashboardEvents">Loading events…</div>
+          </div>
+        </div>
+
+        <div class="charts dash-row">
+          <div class="panel">
+            <div class="panel-header">
+              <h3>Reports</h3>
+              <button type="button" class="panel-link" data-goto="reports">Reports</button>
+            </div>
+            <div class="mini-stats">
+              <div><b class="g" id="dashOverall">—</b><span>Attendance this month</span></div>
+              <div><b class="r" id="dashAbsentCount">—</b><span>Absent records this month</span></div>
+              <div><b class="b" id="dashExcusedCount">—</b><span>Excused records this month</span></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <h3>Today</h3>
+              <button type="button" class="panel-link" data-goto="calendar">Event checklist</button>
+            </div>
+            <div class="mini-list">
+              <div><span>Date</span><b id="dashDate">—</b></div>
+              <div><span>Events in progress</span><b id="dashEventsInProgress">—</b></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel dash-row">
+          <div class="panel-header">
+            <h3>Your account</h3>
+            <button type="button" class="panel-link" data-goto="settings">Settings</button>
+          </div>
+          <div class="mini-list">
+            <div><span>Name</span><b id="dashName">—</b></div>
+            <div><span>Email</span><b id="dashEmail">—</b></div>
+          </div>
+          <div class="panel" id="staffDashboardData">
+            <div class="panel-header">
+              <h3>Recent attendance</h3><button type="button" class="panel-link"
+                onclick="window.open('attendance-display.html', 'attendka-live-display')">Open live check-in
+                screen</button>
+            </div>
+            <div class="api-user-list" id="dashboardRecent">Loading recent attendance…</div>
+          </div>
+        </div>
+      </div>
+
+
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+
+</html>

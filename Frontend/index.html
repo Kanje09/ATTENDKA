@@ -1,13 +1,61 @@
 <!DOCTYPE html>
-<html lang="">
-  <head>
-    <meta charset="UTF-8">
-    <link rel="icon" href="/favicon.ico">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vite App</title>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.ts"></script>
-  </body>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PTCI Attendance - Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/auth.css">
+  <link rel="stylesheet" href="css/lamp.css">
+</head>
+
+<body class="lamp-off">
+  <div class="lamp-wrap">
+    <button type="button" class="lamp" id="lamp" aria-pressed="false"
+      aria-label="Pull the lamp cord to turn on the light and sign in">
+      <span class="wire"></span>
+      <span class="shade"></span>
+      <span class="bulb"></span>
+      <span class="cord"><span class="knob"></span></span>
+    </button>
+    <div class="beam" aria-hidden="true"></div>
+    <p class="hint" id="hint">Pull the cord to sign in</p>
+  </div>
+
+  <div class="card">
+    <div class="logo">
+      <img src="images/ptci-logo.png" alt="PTCI Logo" class="logo-img">
+      <div>
+        <h1>ATTENDKA?</h1>
+        <span>Attendance Management</span>
+      </div>
+    </div>
+
+    <h2>Welcome back</h2>
+    <p class="sub">Sign in to your account</p>
+
+    <div class="error" id="error"></div>
+
+    <form id="loginForm">
+      <label for="email">Email or Username</label>
+      <input type="text" id="email" name="email" autocomplete="username" placeholder="admin" required>
+
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" autocomplete="current-password" placeholder="••••••••"
+        required>
+      <button type="submit">Sign In</button>
+    </form>
+
+
+    <div class="footer">
+      Don't have an account? <a href="register.html">Register</a>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/lamp.js"></script>
+</body>
+
 </html>

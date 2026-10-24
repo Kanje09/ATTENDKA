@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#071b30">
+  <title>Live Attendance — PTCI</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/attendance-display.css">
+</head>
+
+<body>
+  <main class="display-shell">
+    <header class="display-header">
+      <a class="display-brand" href="app.html">
+        <img src="images/ptci-logo.png" alt="" onerror="this.hidden=true">
+        <span><strong>ATTENDKA?</strong><small>ATTENDANCE</small></span>
+      </a>
+      <div class="display-status"><span class="status-dot"></span><span id="connectionStatus">Connecting…</span></div>
+      <div class="display-clock" id="displayClock">--:--</div>
+      <button class="display-button" id="fullscreenButton" type="button">Full screen</button>
+    </header>
+
+    <section class="display-intro">
+      <p class="eyebrow">LIVE EVENT CHECK-IN</p>
+      <h1>Welcome to Attendka?</h1>
+      <p>Tap your student card on the reader. Your check-in will appear here.</p>
+    </section>
+
+    <section class="checkin-carousel" aria-label="Five latest student check-ins" aria-live="polite">
+      <div class="checkin-slides" id="checkinSlides">
+        <article class="checkin-empty">Waiting for student check-ins…</article>
+      </div>
+      <div class="carousel-footer">
+        <span id="carouselCaption">Showing the latest 5 check-ins</span>
+        <span class="carousel-dots" id="carouselDots" aria-hidden="true"></span>
+      </div>
+    </section>
+
+    <footer class="display-footer">
+      <span>Attendance records update automatically.</span>
+      <a href="app.html">Back to dashboard</a>
+    </footer>
+  </main>
+  <script src="js/api.js"></script>
+  <script src="js/attendance-display.js"></script>
+</body>
+
+</html>
