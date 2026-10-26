@@ -364,54 +364,67 @@ attendanceRouter.post(
                 return;
             }
 
-            const eventResult = await db.query<{
+            const assignedEventId = assignedEvent.rows[0]?.event_id ?? null;
+            const attendanceMode = assignedEvent.rows[0]?.attendance_mode ?? "auto";
+
+            type ScanEvent = {
                 event_id: number;
                 title: string;
                 start_datetime: Date;
                 points: number;
                 is_late: boolean;
                 event_status: string;
-            }>(
-                `SELECT e.event_id, e.title, ${eventStart} AS start_datetime,
-                        e.points, e.event_status,
-                        now() > ${eventStart} + ($3::int * interval '1 minute') AS is_late
-                 FROM events e
-                 WHERE e.requires_attendance = TRUE
-                   AND (e.department_id IS NULL OR e.department_id = $1)
-                   AND ($2::int IS NULL OR e.event_id = $2)
-                   AND (
-                       (
-                           COALESCE($4::text, 'auto') = 'time_in'
-                           AND e.attendance_open = TRUE
-                           AND e.event_status NOT IN ('moved', 'cancelled', 'done')
-                           AND now() <= ${eventEnd}
-                       )
-                       OR (
-                           COALESCE($4::text, 'auto') = 'time_out'
-                           AND e.event_status NOT IN ('moved', 'cancelled')
-                           AND $2::int IS NOT NULL
-                       )
-                       OR (
-                           COALESCE($4::text, 'auto') = 'auto'
-                           AND e.attendance_open = TRUE
-                           AND e.event_status NOT IN ('moved', 'cancelled', 'done')
-                           AND now() <= ${eventEnd}
-                       )
-                       OR (
-                           COALESCE($4::text, 'auto') = 'auto'
-                           AND e.event_status = 'done'
-                           AND $2::int IS NOT NULL
-                       )
-                   )
-                 ORDER BY ${eventStart}
-                 LIMIT 1`,
-                [
-                    card.department_id,
-                    assignedEvent.rows[0]?.event_id ?? null,
-                    LATE_AFTER_MIN,
-                    assignedEvent.rows[0]?.attendance_mode ?? "auto",
-                ],
-            );
+            };
+
+            let timeOutMode = false;
+            let eventResult: { rowCount: number | null; rows: ScanEvent[] } = { rowCount: 0, rows: [] };
+
+            // 1) Time in: any event the admin opened (attendance_open = TRUE).
+            //    A manual "open" overrides the end time. Prefer the event happening now.
+            if (attendanceMode !== "time_out") {
+                eventResult = await db.query<ScanEvent>(
+                    `SELECT e.event_id, e.title, ${eventStart} AS start_datetime,
+                e.points, e.event_status,
+                now() > ${eventStart} + ($3::int * interval '1 minute') AS is_late
+         FROM events e
+         WHERE e.requires_attendance = TRUE
+           AND (e.department_id IS NULL OR e.department_id = $1)
+           AND ($2::int IS NULL OR e.event_id = $2)
+           AND e.attendance_open = TRUE
+           AND e.event_status NOT IN ('moved', 'cancelled', 'done')
+         ORDER BY (now() BETWEEN ${eventStart} AND ${eventEnd}) DESC,
+                  abs(extract(epoch FROM (${eventStart} - now()))),
+                  ${eventStart}
+         LIMIT 1`,
+                    [card.department_id, assignedEventId, LATE_AFTER_MIN],
+                );
+            }
+
+            // 2) Time out: find the event where THIS student is timed in but not out.
+            //    No reader assignment needed.
+            //    - mode "time_out": any such event
+            //    - mode "auto": only events marked "done"
+            if (!eventResult.rowCount && attendanceMode !== "time_in") {
+                eventResult = await db.query<ScanEvent>(
+                    `SELECT e.event_id, e.title, ${eventStart} AS start_datetime,
+                e.points, e.event_status, FALSE AS is_late
+         FROM events e
+         JOIN event_attendance ea
+           ON ea.event_id = e.event_id
+          AND ea.student_id = $3
+          AND ea.time_in IS NOT NULL
+          AND ea.time_out IS NULL
+         WHERE e.requires_attendance = TRUE
+           AND (e.department_id IS NULL OR e.department_id = $1)
+           AND ($2::int IS NULL OR e.event_id = $2)
+           AND e.event_status NOT IN ('moved', 'cancelled')
+           AND ($4::text = 'time_out' OR e.event_status = 'done')
+         ORDER BY ea.time_in DESC
+         LIMIT 1`,
+                    [card.department_id, assignedEventId, card.student_id, attendanceMode],
+                );
+                timeOutMode = Boolean(eventResult.rowCount);
+            }
 
             if (!eventResult.rowCount) {
                 const diagnosticResult = await db.query<{
@@ -440,22 +453,13 @@ attendanceRouter.post(
                 const scanAt = diagnosticResult.rows[0]?.scan_at;
                 const mode = assignedEvent.rows[0]?.attendance_mode ?? "auto";
                 const candidates = diagnosticResult.rows.map((candidate) => {
-                    const scanTime = scanAt ? new Date(scanAt).getTime() : Date.now();
-                    const startsAt = new Date(candidate.start_datetime).getTime();
-                    const endsAt = new Date(candidate.end_datetime).getTime();
                     let reason: string;
                     if (mode === "time_out") {
-                        reason = !["moved", "cancelled"].includes(candidate.event_status)
-                            ? "event_not_selected_for_time_out"
-                            : "event_not_available_for_time_out";
+                        reason = "no_open_time_in_for_student";
                     } else if (!candidate.attendance_open) {
                         reason = "attendance_closed";
-                    } else if (candidate.event_status !== "ongoing") {
-                        reason = "event_not_ongoing";
-                    } else if (scanTime < startsAt - EARLY_WINDOW_MIN * 60_000) {
-                        reason = "time_in_window_not_open";
-                    } else if (scanTime > endsAt) {
-                        reason = "event_time_window_closed";
+                    } else if (["done", "moved", "cancelled"].includes(candidate.event_status)) {
+                        reason = `event_${candidate.event_status}`;
                     } else {
                         reason = "event_did_not_match_scan_query";
                     }
@@ -491,9 +495,6 @@ attendanceRouter.post(
             }
 
             const event = eventResult.rows[0];
-            const attendanceMode = assignedEvent.rows[0]?.attendance_mode ?? "auto";
-            const timeOutMode = attendanceMode === "time_out" ||
-                (attendanceMode === "auto" && event.event_status === "done");
             if (timeOutMode) {
                 const existingAttendance = await db.query<{
                     attendance_id: number;
