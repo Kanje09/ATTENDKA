@@ -1,6 +1,6 @@
 (() => {
   const baseUrl = (
-    window.ATTENDKA_API_BASE || "https://attendka.onrender.com//api"
+    window.ATTENDKA_API_BASE || "https://attendka.onrender.com/api"
   ).replace(/\/+$/, "");
 
   async function apiRequest(path, options = {}) {
