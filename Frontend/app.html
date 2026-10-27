@@ -9,6 +9,7 @@
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap"
     rel="stylesheet">
   <link rel="stylesheet" href="css/app.css">
+  <link rel="icon" type="image/png" href="images/logo.png">
 </head>
 
 <body>
@@ -21,7 +22,7 @@
       </svg></button>
 
     <div class="brand">
-      <img src="images/ptci-logo.png" alt="PTCI Logo" class="brand-img" onerror="this.style.display='none'">
+      <img src="images/logo.png" alt="PTCI Logo" class="brand-img" onerror="this.style.display='none'">
       <div class="brand-text">
         <h1>ATTENDKA?</h1>
         <span>Attendance Management</span>
@@ -193,7 +194,8 @@
               <div class="panel-header">
                 <h3>RFID check-in status</h3>
               </div>
-              <p class="sub">Reader enabled means the ESP32 can send scans. Automatic mode requires an event marked ongoing. Manual time in opens the assigned event through its end time, even if it is still pending.</p>
+              <p class="sub">Reader enabled means the ESP32 can send scans. Automatic mode requires an event marked
+                ongoing. Manual time in opens the assigned event through its end time, even if it is still pending.</p>
               <div class="api-user-list" id="rfidReaderStatusList">Loading readers…</div>
               <p class="api-message" id="rfidReaderStatusMessage" role="status"></p>
             </section>
@@ -996,7 +998,8 @@
           <div class="header-actions">
             <label for="schoolCalendarMonth">Month</label><input id="schoolCalendarMonth" type="month">
           </div>
-          <p class="sub">Events for the selected month. Event details and status updates are managed by the administration.</p>
+          <p class="sub">Events for the selected month. Event details and status updates are managed by the
+            administration.</p>
           <div id="schoolCalendarEvents" class="school-calendar-events" aria-live="polite">Loading school events…</div>
           <p class="api-message" id="schoolCalendarMessage" role="status"></p>
         </section>
@@ -1128,7 +1131,8 @@
               Loading attendance history…
             </div>
             <div class="student-contribution-legend" aria-hidden="true">
-              <span>Less</span><i class="level-0"></i><i class="level-1"></i><i class="level-2"></i><i class="level-3"></i><i class="level-4"></i><span>More</span>
+              <span>Less</span><i class="level-0"></i><i class="level-1"></i><i class="level-2"></i><i
+                class="level-3"></i><i class="level-4"></i><span>More</span>
             </div>
           </section>
           <div class="api-user-list" id="studentEventList">Loading your events…</div>
@@ -1164,11 +1168,13 @@
               <h3>Attendance Heat Map · Last 30 days</h3>
               <button type="button" class="panel-link" data-goto="admin">Admin</button>
             </div>
-            <div id="attendanceHeatMap" class="attendance-heatmap-grid" aria-label="Daily attendance check-ins for the last 30 days">
+            <div id="attendanceHeatMap" class="attendance-heatmap-grid"
+              aria-label="Daily attendance check-ins for the last 30 days">
               Loading attendance activity…
             </div>
             <div class="attendance-heatmap-legend" aria-hidden="true">
-              <span>Less</span><i class="heat-level-0"></i><i class="heat-level-1"></i><i class="heat-level-2"></i><i class="heat-level-3"></i><i class="heat-level-4"></i><span>More</span>
+              <span>Less</span><i class="heat-level-0"></i><i class="heat-level-1"></i><i class="heat-level-2"></i><i
+                class="heat-level-3"></i><i class="heat-level-4"></i><span>More</span>
             </div>
             <div class="heat-bars attendance-status-bars">
               <div class="bar-row" data-status="present"><span class="mini-label">Present</span>

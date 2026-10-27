@@ -38,7 +38,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     const result = await api.request("/auth/me");
     currentUser = result.user;
-    localStorage.setItem("ptci_user", JSON.stringify(currentUser));
+    // Don't store the (large) photo in localStorage
+    const { photo: _photo, ...userForStorage } = currentUser;
+    localStorage.setItem("ptci_user", JSON.stringify(userForStorage));
   } catch {
     api.clearSession();
     window.location.replace("index.html");
@@ -133,16 +135,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     setAvatar(byId("avatar"), savedAvatar);
     setAvatar(document.querySelector(".big-avatar"), savedAvatar);
   }
-  if (isStudent) {
-    const photo = new Image();
-    photo.addEventListener("load", () => {
-      setAvatar(byId("avatar"), photo.src);
-      setAvatar(document.querySelector(".big-avatar"), photo.src);
-    });
-    photo.src =
-      localStorage.getItem(`attendka_student_photo_${currentUser.user_id}`) ||
-      `images/students/${currentUser.user_id}.jpg`;
+
+  if (isStudent && currentUser.photo) {
+    setAvatar(byId("avatar"), currentUser.photo);
+    setAvatar(document.querySelector(".big-avatar"), currentUser.photo);
   }
+
   if (isStudent) {
     document.querySelector(".topbar .search")?.setAttribute("hidden", "");
     if (byId("profileForm")) byId("profileForm").hidden = true;
@@ -346,7 +344,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         }),
       });
       currentUser = { ...currentUser, ...result.user };
-      localStorage.setItem("ptci_user", JSON.stringify(currentUser));
+      const { photo: _photo, ...userForStorage } = currentUser;
+      localStorage.setItem("ptci_user", JSON.stringify(userForStorage));
       setText("userName", `${currentUser.first_name} ${currentUser.last_name}`);
       setText(
         "topUserName",
@@ -535,12 +534,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         location: byId("readerLocation").value.trim() || null,
       }),
     });
-    setFormMessage(
-      "readerMessage",
-      `Reader created. Copy its device key now: ${result.device_key}`,
-      true,
-    );
-    await Readers();
+    await loadRfidReaders();
+    // Show the device key AFTER submitForm's own success message
+    window.setTimeout(() => {
+      setFormMessage(
+        "readerMessage",
+        `Reader created. Copy its device key now: ${result.device_key}`,
+        true,
+      );
+    }, 0);
   });
 
   submitForm(byId("cardForm"), "cardMessage", async () => {
@@ -574,33 +576,37 @@ document.addEventListener("DOMContentLoaded", async () => {
     image.addEventListener(
       "error",
       () => {
-        preview.textContent =
-          "The photo could not be loaded. Check the filename and folder.";
+        preview.textContent = "The photo could not be loaded.";
       },
       { once: true },
     );
     preview.append(image);
   }
-  byId("photoStudent")?.addEventListener("change", () => {
+
+  byId("photoStudent")?.addEventListener("change", async () => {
     clearStudentPhotoPreviewUrl();
     const userId = Number(byId("photoStudent").value);
     selectedStudentPhotoFile = null;
     if (byId("studentPhotoFile")) byId("studentPhotoFile").value = "";
     if (byId("studentPhotoFilename")) byId("studentPhotoFilename").value = "";
-    const saved = userId
-      ? localStorage.getItem(`attendka_student_photo_${userId}`)
-      : null;
-    const fallback = userId ? `images/students/${userId}.jpg` : "";
-    showStudentPhotoPreview(
-      saved || fallback,
-      userId ? "No saved photo" : "Photo preview",
-    );
+    if (!userId) {
+      showStudentPhotoPreview("", "Photo preview");
+      return;
+    }
+    try {
+      const result = await api.request(`/admin/students/${userId}/photo`);
+      showStudentPhotoPreview(result.photo || "", "No saved photo");
+    } catch (error) {
+      showStudentPhotoPreview("", error.message);
+    }
   });
+
   byId("studentPhotoFile")?.addEventListener("change", (event) => {
     clearStudentPhotoPreviewUrl();
     selectedStudentPhotoFile = event.target.files?.[0] || null;
     if (selectedStudentPhotoFile) {
-      byId("studentPhotoFilename").value = selectedStudentPhotoFile.name;
+      if (byId("studentPhotoFilename"))
+        byId("studentPhotoFilename").value = selectedStudentPhotoFile.name;
       studentPhotoPreviewUrl = URL.createObjectURL(selectedStudentPhotoFile);
       showStudentPhotoPreview(studentPhotoPreviewUrl);
     }
@@ -614,69 +620,55 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
     try {
-      let source;
-      if (selectedStudentPhotoFile) {
-        if (!selectedStudentPhotoFile.type.startsWith("image/")) {
-          throw new Error("Choose a valid image file.");
-        }
-        const bitmap = await createImageBitmap(selectedStudentPhotoFile);
-        const scale = Math.min(1, 640 / Math.max(bitmap.width, bitmap.height));
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-        canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-        canvas
-          .getContext("2d")
-          .drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-        bitmap.close();
-        source = canvas.toDataURL("image/jpeg", 0.8);
-      } else {
-        const filename = byId("studentPhotoFilename").value.trim();
-        if (!/^[\w .()-]+\.(?:jpg|jpeg|png|webp|gif)$/i.test(filename)) {
-          throw new Error(
-            "Choose an image file or enter a filename such as student-photo.jpg.",
-          );
-        }
-        source = `images/students/${encodeURIComponent(filename)}`;
+      if (!selectedStudentPhotoFile)
+        throw new Error("Choose a photo to upload.");
+      if (!selectedStudentPhotoFile.type.startsWith("image/")) {
+        throw new Error("Choose a valid image file.");
       }
-      localStorage.setItem(`attendka_student_photo_${userId}`, source);
-      localStorage.removeItem(`attendka_hidden_student_photo_${userId}`);
+      const bitmap = await createImageBitmap(selectedStudentPhotoFile);
+      const scale = Math.min(1, 320 / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      canvas
+        .getContext("2d")
+        .drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      bitmap.close();
+      const source = canvas.toDataURL("image/jpeg", 0.7);
+
+      await api.request(`/admin/students/${userId}/photo`, {
+        method: "PUT",
+        body: JSON.stringify({ photo: source }),
+      });
       clearStudentPhotoPreviewUrl();
       byId("studentPhotoFileForm").reset();
       selectedStudentPhotoFile = null;
-      showStudentPhotoPreview("", "Photo preview");
-      setFormMessage(
-        "studentPhotoMessage",
-        "Student photo saved in this browser and will appear on the live check-in screen in this browser.",
-        true,
-      );
+      showStudentPhotoPreview(source);
+      setFormMessage("studentPhotoMessage", "Student photo saved.", true);
     } catch (error) {
-      setFormMessage(
-        "studentPhotoMessage",
-        error.name === "QuotaExceededError"
-          ? "Browser storage is full. Remove an old photo or choose a smaller image."
-          : error.message,
-      );
+      setFormMessage("studentPhotoMessage", error.message);
     }
   });
-  on("removeStudentPhoto", "click", () => {
+
+  on("removeStudentPhoto", "click", async () => {
     const userId = Number(byId("photoStudent")?.value);
     if (!userId) {
       setFormMessage("studentPhotoMessage", "Choose a student first.");
       return;
     }
-    localStorage.removeItem(`attendka_student_photo_${userId}`);
-    clearStudentPhotoPreviewUrl();
-    byId("studentPhotoFileForm").reset();
-    selectedStudentPhotoFile = null;
-    showStudentPhotoPreview(
-      `images/students/${userId}.jpg`,
-      "No photo selected",
-    );
-    setFormMessage(
-      "studentPhotoMessage",
-      "Saved student photo removed from this browser.",
-      true,
-    );
+    try {
+      await api.request(`/admin/students/${userId}/photo`, {
+        method: "PUT",
+        body: JSON.stringify({ photo: null }),
+      });
+      clearStudentPhotoPreviewUrl();
+      byId("studentPhotoFileForm").reset();
+      selectedStudentPhotoFile = null;
+      showStudentPhotoPreview("", "No photo selected");
+      setFormMessage("studentPhotoMessage", "Student photo removed.", true);
+    } catch (error) {
+      setFormMessage("studentPhotoMessage", error.message);
+    }
   });
 
   submitForm(byId("masterlistForm"), "masterlistMessage", async () => {
@@ -1262,9 +1254,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   on("saveMasterlistStudents", "click", async () => {
     const masterlistId = Number(byId("masterlistSelect")?.value);
-    const container = byId("masterlistCandidates");
     const studentIds = Array.from(
-      container?.querySelectorAll(".student-choice:checked") || [],
+      byId("masterlistCandidates")?.querySelectorAll(
+        ".student-choice:checked",
+      ) || [],
     ).map((input) => Number(input.value));
     try {
       if (!masterlistId || !studentIds.length)
@@ -1276,53 +1269,6 @@ document.addEventListener("DOMContentLoaded", async () => {
           body: JSON.stringify({ student_ids: studentIds }),
         },
       );
-      on("removeMasterlistStudents", "click", async () => {
-        const masterlistId = Number(byId("masterlistSelect")?.value);
-        const studentIds = Array.from(
-          byId("masterlistCandidates")?.querySelectorAll(
-            ".student-choice:checked",
-          ) || [],
-        ).map((input) => Number(input.value));
-        try {
-          if (!masterlistId || !studentIds.length)
-            throw new Error("Select students to remove from the masterlist.");
-          const result = await api.request(
-            `/admin/masterlists/${masterlistId}/students`,
-            {
-              method: "DELETE",
-              body: JSON.stringify({ student_ids: studentIds }),
-            },
-          );
-          setFormMessage(
-            "masterlistStudentsMessage",
-            `${result.removed} student(s) removed from the masterlist.`,
-            true,
-          );
-          await loadMasterlists();
-          await loadMasterlistCandidates();
-        } catch (error) {
-          setFormMessage("masterlistStudentsMessage", error.message);
-        }
-      });
-      on("updateMasterlist", "click", async () => {
-        const masterlistId = Number(byId("masterlistSelect")?.value);
-        try {
-          if (!masterlistId) throw new Error("Select a masterlist to update.");
-          await api.request(`/admin/masterlists/${masterlistId}`, {
-            method: "PATCH",
-            body: JSON.stringify({
-              department_id: Number(byId("masterlistDepartment").value),
-              school_year: byId("masterlistYear").value.trim(),
-              semester: byId("masterlistSemester").value,
-            }),
-          });
-          setFormMessage("masterlistMessage", "Masterlist updated.", true);
-          await loadMasterlists();
-          await loadMasterlistCandidates();
-        } catch (error) {
-          setFormMessage("masterlistMessage", error.message);
-        }
-      });
       setFormMessage(
         "masterlistStudentsMessage",
         `${result.added} student(s) added to the masterlist.`,
@@ -1332,6 +1278,55 @@ document.addEventListener("DOMContentLoaded", async () => {
       await loadMasterlistCandidates();
     } catch (error) {
       setFormMessage("masterlistStudentsMessage", error.message);
+    }
+  });
+
+  on("removeMasterlistStudents", "click", async () => {
+    const masterlistId = Number(byId("masterlistSelect")?.value);
+    const studentIds = Array.from(
+      byId("masterlistCandidates")?.querySelectorAll(
+        ".student-choice:checked",
+      ) || [],
+    ).map((input) => Number(input.value));
+    try {
+      if (!masterlistId || !studentIds.length)
+        throw new Error("Select students to remove from the masterlist.");
+      const result = await api.request(
+        `/admin/masterlists/${masterlistId}/students`,
+        {
+          method: "DELETE",
+          body: JSON.stringify({ student_ids: studentIds }),
+        },
+      );
+      setFormMessage(
+        "masterlistStudentsMessage",
+        `${result.removed} student(s) removed from the masterlist.`,
+        true,
+      );
+      await loadMasterlists();
+      await loadMasterlistCandidates();
+    } catch (error) {
+      setFormMessage("masterlistStudentsMessage", error.message);
+    }
+  });
+
+  on("updateMasterlist", "click", async () => {
+    const masterlistId = Number(byId("masterlistSelect")?.value);
+    try {
+      if (!masterlistId) throw new Error("Select a masterlist to update.");
+      await api.request(`/admin/masterlists/${masterlistId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          department_id: Number(byId("masterlistDepartment").value),
+          school_year: byId("masterlistYear").value.trim(),
+          semester: byId("masterlistSemester").value,
+        }),
+      });
+      setFormMessage("masterlistMessage", "Masterlist updated.", true);
+      await loadMasterlists();
+      await loadMasterlistCandidates();
+    } catch (error) {
+      setFormMessage("masterlistMessage", error.message);
     }
   });
 
@@ -1523,12 +1518,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       await loadSchoolCalendar();
       await loadRfidEventOptions();
-      select.replaceChildren(
-        new Option(
-          events.length ? "Select event" : "No attendance events on this date",
-          "",
-        ),
-      );
     } catch (error) {
       if (byId("eventList")) byId("eventList").textContent = error.message;
       if (byId("dashboardEvents"))
@@ -1623,13 +1612,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     }
   });
-
-  function localDateRange(date) {
-    const start = new Date(`${date}T00:00:00`);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 1);
-    return { from: start.toISOString(), to: end.toISOString() };
-  }
 
   function localDateTimeValue(value) {
     if (!value) return "";

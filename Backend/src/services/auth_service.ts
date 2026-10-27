@@ -103,14 +103,14 @@ export async function login(input: LoginInput) {
 
 export async function getCurrentUser(userId: number) {
     const result = await pool.query(
-        `SELECT u.user_id, u.username, u.role, u.first_name, u.middle_name, u.last_name, u.email,
-                s.student_id, s.student_no, s.department_id, s.year_level, s.section,
-                t.teacher_id, t.employee_no, t.department_id AS teaching_department_id,
-                t.year_level AS teaching_year_level
-         FROM users u
-         LEFT JOIN students s ON s.user_id = u.user_id
-         LEFT JOIN teachers t ON t.user_id = u.user_id
-         WHERE u.user_id = $1 AND u.is_active = TRUE`,
+        `SELECT u.user_id, u.username, u.role, u.first_name, u.middle_name, u.last_name, u.email, u.photo,
+        s.student_id, s.student_no, s.department_id, s.year_level, s.section,
+        t.teacher_id, t.employee_no, t.department_id AS teaching_department_id,
+        t.year_level AS teaching_year_level
+ FROM users u
+ LEFT JOIN students s ON s.user_id = u.user_id
+ LEFT JOIN teachers t ON t.user_id = u.user_id
+ WHERE u.user_id = $1 AND u.is_active = TRUE`,
         [userId],
     );
     if (!result.rowCount) {

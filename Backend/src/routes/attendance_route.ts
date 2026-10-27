@@ -737,7 +737,7 @@ attendanceRouter.get(
             `SELECT ea.attendance_id, ea.event_id, e.title AS event_title,
                     ea.time_in, ea.time_out, ea.status,
                     s.student_id, s.student_no, s.year_level, s.section, u.user_id,
-                    u.first_name, u.last_name,
+                    u.first_name, u.last_name,u.photo,
                     d.code AS department_code,
                     GREATEST(ea.time_in, COALESCE(ea.time_out, ea.time_in)) AS last_activity
              FROM event_attendance ea

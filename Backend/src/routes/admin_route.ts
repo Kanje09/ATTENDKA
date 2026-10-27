@@ -549,6 +549,40 @@ adminRouter.patch(
         res.json({ ok: true, teacher: result.rows[0] });
     }),
 );
+adminRouter.get(
+    "/students/:userId/photo",
+    asyncHandler(async (req, res) => {
+        const userId = Number(req.params.userId);
+        if (!Number.isSafeInteger(userId) || userId < 1) {
+            throw new HttpError(400, "invalid_user_id");
+        }
+        const result = await pool.query("SELECT photo FROM users WHERE user_id = $1", [userId]);
+        if (!result.rowCount) throw new HttpError(404, "user_not_found");
+        res.json({ ok: true, photo: result.rows[0].photo });
+    }),
+);
+
+adminRouter.put(
+    "/students/:userId/photo",
+    asyncHandler(async (req, res) => {
+        const userId = Number(req.params.userId);
+        const photo = req.body?.photo ?? null;
+        if (
+            !Number.isSafeInteger(userId) || userId < 1 ||
+            (photo !== null && (typeof photo !== "string" ||
+                !/^data:image\/(jpeg|png|webp);base64,/.test(photo) ||
+                photo.length > 300_000))
+        ) {
+            throw new HttpError(400, "invalid_photo");
+        }
+        const result = await pool.query(
+            "UPDATE users SET photo = $2 WHERE user_id = $1 RETURNING user_id",
+            [userId, photo],
+        );
+        if (!result.rowCount) throw new HttpError(404, "user_not_found");
+        res.json({ ok: true });
+    }),
+);
 
 adminRouter.put(
     "/students/:studentId",
@@ -746,38 +780,33 @@ adminRouter.post(
         }
         const result = await pool.query(
             `INSERT INTO masterlists (department_id, school_year, semester, created_by)
-             VALUES ($1, $2, $3, $4)
-             RETURNING *`,
+             VALUES ($1, $2, $3, $4) RETURNING *`,
             [departmentId, school_year, semester, req.authUser!.userId],
         );
-
-        adminRouter.patch(
-            "/masterlists/:masterlistId",
-            asyncHandler(async (req, res) => {
-                const masterlistId = Number(req.params.masterlistId);
-                const { department_id, school_year, semester } = req.body ?? {};
-                if (
-                    !Number.isSafeInteger(masterlistId) || masterlistId < 1 ||
-                    !Number.isSafeInteger(Number(department_id)) || Number(department_id) < 1 ||
-                    typeof school_year !== "string" || !/^\d{4}-\d{4}$/.test(school_year) ||
-                    !["1st", "2nd", "summer"].includes(semester)
-                ) {
-                    throw new HttpError(400, "invalid_masterlist");
-                }
-                const result = await pool.query(
-                    `UPDATE masterlists
-                     SET department_id = $1, school_year = $2, semester = $3
-                     WHERE masterlist_id = $4
-                     RETURNING *`,
-                    [Number(department_id), school_year, semester, masterlistId],
-                );
-                if (!result.rowCount) {
-                    throw new HttpError(404, "masterlist_not_found");
-                }
-                res.json({ ok: true, masterlist: result.rows[0] });
-            }),
-        );
         res.status(201).json({ ok: true, masterlist: result.rows[0] });
+    }),
+);
+
+adminRouter.patch(
+    "/masterlists/:masterlistId",
+    asyncHandler(async (req, res) => {
+        const masterlistId = Number(req.params.masterlistId);
+        const { department_id, school_year, semester } = req.body ?? {};
+        if (
+            !Number.isSafeInteger(masterlistId) || masterlistId < 1 ||
+            !Number.isSafeInteger(Number(department_id)) || Number(department_id) < 1 ||
+            typeof school_year !== "string" || !/^\d{4}-\d{4}$/.test(school_year) ||
+            !["1st", "2nd", "summer"].includes(semester)
+        ) {
+            throw new HttpError(400, "invalid_masterlist");
+        }
+        const result = await pool.query(
+            `UPDATE masterlists SET department_id = $1, school_year = $2, semester = $3
+             WHERE masterlist_id = $4 RETURNING *`,
+            [Number(department_id), school_year, semester, masterlistId],
+        );
+        if (!result.rowCount) throw new HttpError(404, "masterlist_not_found");
+        res.json({ ok: true, masterlist: result.rows[0] });
     }),
 );
 
@@ -803,29 +832,29 @@ adminRouter.post(
              RETURNING student_id`,
             [masterlistId, studentIds],
         );
-
-        adminRouter.delete(
-            "/masterlists/:masterlistId/students",
-            asyncHandler(async (req, res) => {
-                const masterlistId = Number(req.params.masterlistId);
-                const studentIds: unknown = req.body?.student_ids;
-                if (
-                    !Number.isSafeInteger(masterlistId) || masterlistId < 1 ||
-                    !Array.isArray(studentIds) || studentIds.length > 1000 ||
-                    studentIds.some((id) => !Number.isSafeInteger(id) || (id as number) < 1)
-                ) {
-                    throw new HttpError(400, "invalid_masterlist_students");
-                }
-                const result = await pool.query(
-                    `DELETE FROM masterlist_students
-                     WHERE masterlist_id = $1 AND student_id = ANY($2::int[])
-                     RETURNING student_id`,
-                    [masterlistId, [...new Set(studentIds as number[])]],
-                );
-                res.json({ ok: true, removed: result.rowCount });
-            }),
-        );
         res.status(201).json({ ok: true, added: result.rowCount });
+    }),
+);
+
+adminRouter.delete(
+    "/masterlists/:masterlistId/students",
+    asyncHandler(async (req, res) => {
+        const masterlistId = Number(req.params.masterlistId);
+        const studentIds: unknown = req.body?.student_ids;
+        if (
+            !Number.isSafeInteger(masterlistId) || masterlistId < 1 ||
+            !Array.isArray(studentIds) || studentIds.length > 1000 ||
+            studentIds.some((id) => !Number.isSafeInteger(id) || (id as number) < 1)
+        ) {
+            throw new HttpError(400, "invalid_masterlist_students");
+        }
+        const result = await pool.query(
+            `DELETE FROM masterlist_students
+             WHERE masterlist_id = $1 AND student_id = ANY($2::int[])
+             RETURNING student_id`,
+            [masterlistId, [...new Set(studentIds as number[])]],
+        );
+        res.json({ ok: true, removed: result.rowCount });
     }),
 );
 
