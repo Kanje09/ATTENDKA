@@ -138,13 +138,18 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (isStudent && currentUser.photo) {
     setAvatar(byId("avatar"), currentUser.photo);
-    setAvatar(document.querySelector(".big-avatar"), currentUse r.photo);
+    setAvatar(document.querySelector(".big-avatar"), currentUser.photo);
   }
 
   if (isStudent) {
     document.querySelector(".topbar .search")?.setAttribute("hidden", "");
+    if (byId("profileForm")) byId("profileForm").hidden = true;
     document.querySelector(".avatar-actions")?.setAttribute("hidden", "");
+    document
+      .querySelector('[data-goto="settings"]')
+      ?.setAttribute("hidden", "");
   }
+
   const masterlistsPage = byId("masterlists");
   if (masterlistsPage) masterlistsPage.hidden = !isAdmin;
   const adviserPage = byId("team-adviser");
