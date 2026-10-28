@@ -143,11 +143,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (isStudent) {
     document.querySelector(".topbar .search")?.setAttribute("hidden", "");
-    if (byId("profileForm")) byId("profileForm").hidden = true;
     document.querySelector(".avatar-actions")?.setAttribute("hidden", "");
     document
-      .querySelector('[data-goto="settings"]')
-      ?.setAttribute("hidden", "");
+      .querySelectorAll(
+        '.nav-item[data-page="calendar"], .nav-item[data-page="student-events"]',
+      )
+      .forEach((item) => {
+        item.hidden = true;
+      });
   }
 
   const masterlistsPage = byId("masterlists");
