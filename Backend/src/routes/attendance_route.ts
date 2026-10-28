@@ -260,6 +260,11 @@ attendanceRouter.post(
         res.json({ ok: true, reader_id: result.rows[0].reader_id, is_active: result.rows[0].is_active });
     }),
 );
+// Replace the whole attendanceRouter.post("/scan", ...) block in attendance.ts with this.
+// Uses the existing imports/constants: pool, asyncHandler, HttpError,
+// eventTimestampInstantSql, LATE_AFTER_MIN.
+
+const DOUBLE_TAP_GUARD_MS = 60_000; // ignore a time-out tap within 60s of time-in
 
 attendanceRouter.post(
     "/scan",
@@ -272,6 +277,7 @@ attendanceRouter.post(
             throw new HttpError(400, "card_uid_and_device_key_required");
         }
 
+        const timeZone = process.env.ATTENDANCE_TIME_ZONE || "Asia/Manila";
         const db = await pool.connect();
         let transactionStarted = false;
         try {
@@ -294,11 +300,12 @@ attendanceRouter.post(
             await db.query("UPDATE rfid_readers SET last_seen_at = now() WHERE reader_id = $1", [readerId]);
             await db.query("BEGIN");
             transactionStarted = true;
+
             const assignedEvent = await db.query<{ event_id: number; attendance_mode: string }>(
                 `SELECT event_id, attendance_mode FROM rfid_event_assignments
                  WHERE reader_id = $1
                    AND attendance_date = (now() AT TIME ZONE $2)::date`,
-                [readerId, process.env.ATTENDANCE_TIME_ZONE || "Asia/Manila"],
+                [readerId, timeZone],
             );
             const [eventStart, eventEnd] = await Promise.all([
                 eventTimestampInstantSql(pool, "start_datetime"),
@@ -379,51 +386,84 @@ attendanceRouter.post(
             let timeOutMode = false;
             let eventResult: { rowCount: number | null; rows: ScanEvent[] } = { rowCount: 0, rows: [] };
 
-            // 1) Time in: any event the admin opened (attendance_open = TRUE).
-            //    A manual "open" overrides the end time. Prefer the event happening now.
+            // 1) TIME IN: any event the admin opened (attendance_open = TRUE).
+            //    In "auto" mode, skip events this student has already timed in on,
+            //    so the second tap falls through to the time-out step below.
+            //    In "time_in" mode a repeat tap still matches and is reported as duplicate.
             if (attendanceMode !== "time_out") {
                 eventResult = await db.query<ScanEvent>(
                     `SELECT e.event_id, e.title, ${eventStart} AS start_datetime,
-                e.points, e.event_status,
-                now() > ${eventStart} + ($3::int * interval '1 minute') AS is_late
-         FROM events e
-         WHERE e.requires_attendance = TRUE
-           AND (e.department_id IS NULL OR e.department_id = $1)
-           AND ($2::int IS NULL OR e.event_id = $2)
-           AND e.attendance_open = TRUE
-           AND e.event_status NOT IN ('moved', 'cancelled', 'done')
-         ORDER BY (now() BETWEEN ${eventStart} AND ${eventEnd}) DESC,
-                  abs(extract(epoch FROM (${eventStart} - now()))),
-                  ${eventStart}
-         LIMIT 1`,
-                    [card.department_id, assignedEventId, LATE_AFTER_MIN],
+                            e.points, e.event_status,
+                            now() > ${eventStart} + ($3::int * interval '1 minute') AS is_late
+                     FROM events e
+                     WHERE e.requires_attendance = TRUE
+                       AND (e.department_id IS NULL OR e.department_id = $1)
+                       AND ($2::int IS NULL OR e.event_id = $2)
+                       AND e.attendance_open = TRUE
+                       AND e.event_status NOT IN ('moved', 'cancelled', 'done')
+                       AND ($4::text <> 'auto' OR NOT EXISTS (
+                             SELECT 1 FROM event_attendance ea
+                             WHERE ea.event_id = e.event_id
+                               AND ea.student_id = $5
+                               AND ea.time_in IS NOT NULL
+                       ))
+                     ORDER BY (now() BETWEEN ${eventStart} AND ${eventEnd}) DESC,
+                              abs(extract(epoch FROM (${eventStart} - now()))),
+                              ${eventStart}
+                     LIMIT 1`,
+                    [card.department_id, assignedEventId, LATE_AFTER_MIN, attendanceMode, card.student_id],
                 );
             }
 
-            // 2) Time out: find the event where THIS student is timed in but not out.
-            //    No reader assignment needed.
-            //    - mode "time_out": any such event
-            //    - mode "auto": only events marked "done"
+            // 2) TIME OUT: the event where THIS student is timed in but not out.
+            //    Works for any event status except moved/cancelled, in both
+            //    "auto" and "time_out" modes. No reader assignment needed.
             if (!eventResult.rowCount && attendanceMode !== "time_in") {
                 eventResult = await db.query<ScanEvent>(
                     `SELECT e.event_id, e.title, ${eventStart} AS start_datetime,
-                e.points, e.event_status, FALSE AS is_late
-         FROM events e
-         JOIN event_attendance ea
-           ON ea.event_id = e.event_id
-          AND ea.student_id = $3
-          AND ea.time_in IS NOT NULL
-          AND ea.time_out IS NULL
-         WHERE e.requires_attendance = TRUE
-           AND (e.department_id IS NULL OR e.department_id = $1)
-           AND ($2::int IS NULL OR e.event_id = $2)
-           AND e.event_status NOT IN ('moved', 'cancelled')
-           AND ($4::text = 'time_out' OR e.event_status = 'done')
-         ORDER BY ea.time_in DESC
-         LIMIT 1`,
-                    [card.department_id, assignedEventId, card.student_id, attendanceMode],
+                            e.points, e.event_status, FALSE AS is_late
+                     FROM events e
+                     JOIN event_attendance ea
+                       ON ea.event_id = e.event_id
+                      AND ea.student_id = $3
+                      AND ea.time_in IS NOT NULL
+                      AND ea.time_out IS NULL
+                     WHERE e.requires_attendance = TRUE
+                       AND (e.department_id IS NULL OR e.department_id = $1)
+                       AND ($2::int IS NULL OR e.event_id = $2)
+                       AND e.event_status NOT IN ('moved', 'cancelled')
+                     ORDER BY ea.time_in DESC
+                     LIMIT 1`,
+                    [card.department_id, assignedEventId, card.student_id],
                 );
                 timeOutMode = Boolean(eventResult.rowCount);
+            }
+
+            // 3) Nothing to time in or out of. If the student has already completed
+            //    an open event, report "duplicate" instead of "no_event".
+            if (!eventResult.rowCount) {
+                const completed = await db.query<{ event_id: number; title: string }>(
+                    `SELECT e.event_id, e.title
+                     FROM event_attendance ea
+                     JOIN events e ON e.event_id = ea.event_id
+                     WHERE ea.student_id = $1
+                       AND ea.time_in IS NOT NULL
+                       AND ea.time_out IS NOT NULL
+                       AND ($2::int IS NULL OR ea.event_id = $2)
+                       AND (e.department_id IS NULL OR e.department_id = $3)
+                       AND e.attendance_open = TRUE
+                       AND e.event_status NOT IN ('moved', 'cancelled')
+                     ORDER BY ea.time_out DESC
+                     LIMIT 1`,
+                    [card.student_id, assignedEventId, card.department_id],
+                );
+                if (completed.rowCount) {
+                    await saveLog(card.card_id, completed.rows[0].event_id, "duplicate");
+                    await db.query("COMMIT");
+                    transactionStarted = false;
+                    res.json({ ok: true, result: "duplicate", name, event: completed.rows[0].title });
+                    return;
+                }
             }
 
             if (!eventResult.rowCount) {
@@ -448,13 +488,12 @@ attendanceRouter.post(
                               abs(extract(epoch FROM (${eventStart} - now()))),
                               ${eventStart}
                      LIMIT 25`,
-                    [card.department_id, assignedEvent.rows[0]?.event_id ?? null],
+                    [card.department_id, assignedEventId],
                 );
                 const scanAt = diagnosticResult.rows[0]?.scan_at;
-                const mode = assignedEvent.rows[0]?.attendance_mode ?? "auto";
                 const candidates = diagnosticResult.rows.map((candidate) => {
                     let reason: string;
-                    if (mode === "time_out") {
+                    if (attendanceMode === "time_out") {
                         reason = "no_open_time_in_for_student";
                     } else if (!candidate.attendance_open) {
                         reason = "attendance_closed";
@@ -478,7 +517,7 @@ attendanceRouter.post(
                     studentId: card.student_id,
                     departmentId: card.department_id,
                     assignment: assignedEvent.rows[0] ?? null,
-                    timeZone: process.env.ATTENDANCE_TIME_ZONE || "Asia/Manila",
+                    timeZone,
                     scanAt,
                     candidates,
                 });
@@ -495,6 +534,7 @@ attendanceRouter.post(
             }
 
             const event = eventResult.rows[0];
+
             if (timeOutMode) {
                 const existingAttendance = await db.query<{
                     attendance_id: number;
@@ -509,7 +549,11 @@ attendanceRouter.post(
                     [event.event_id, card.student_id],
                 );
                 const attendance = existingAttendance.rows[0];
-                if (!attendance?.time_in || attendance.time_out) {
+                if (
+                    !attendance?.time_in ||
+                    attendance.time_out ||
+                    Date.now() - new Date(attendance.time_in).getTime() < DOUBLE_TAP_GUARD_MS
+                ) {
                     await saveLog(card.card_id, event.event_id, "duplicate");
                     await db.query("COMMIT");
                     transactionStarted = false;
@@ -536,6 +580,7 @@ attendanceRouter.post(
                 return;
             }
 
+            // TIME IN
             const logId = await saveLog(card.card_id, event.event_id, "accepted");
             const insertedAttendance = await db.query<{ attendance_id: number }>(
                 `INSERT INTO event_attendance (event_id, student_id, time_in, status, log_id)
