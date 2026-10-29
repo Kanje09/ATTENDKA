@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Signing in…</title>
+</head>
+<body>
+  <p id="msg">Signing you in… this can take up to a minute.</p>
+  <script>
+    const API_BASE = "https://attendka.onrender.com"; // backend, no trailing slash
+
+    (async () => {
+      const msg = document.getElementById("msg");
+      const token = new URLSearchParams(location.hash.slice(1)).get("t");
+      history.replaceState(null, "", location.pathname); // hide token from address bar
+      if (!token) { msg.textContent = "Invalid card."; return; }
+      try {
+        const r = await fetch(`${API_BASE}/auth/card-login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token })
+        });
+        const data = await r.json();
+        if (!r.ok || !data.token) throw new Error();
+        localStorage.removeItem("ptci_user"); // clear any previous user on a shared phone
+        localStorage.setItem("ptci_access_token", data.token);
+        location.replace("app.html");
+      } catch {
+        msg.textContent = "Card not recognized. Please log in normally.";
+      }
+    })();
+  </script>
+</body>
+</html>

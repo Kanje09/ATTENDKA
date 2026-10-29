@@ -144,13 +144,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (isStudent) {
     document.querySelector(".topbar .search")?.setAttribute("hidden", "");
     document.querySelector(".avatar-actions")?.setAttribute("hidden", "");
-    document
-      .querySelectorAll(
-        '.nav-item[data-page="calendar"], .nav-item[data-page="student-events"]',
-      )
-      .forEach((item) => {
-        item.hidden = true;
-      });
   }
 
   const masterlistsPage = byId("masterlists");
@@ -164,6 +157,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (byId("studentEventList")) {
     byId("studentEventList").closest(".panel").hidden = !isStudent;
   }
+
+  if (byId("settingsNav")) byId("settingsNav").hidden = false;
+  if (byId("settings")) byId("settings").hidden = false;
+  
   if (isStudent) {
     document
       .querySelectorAll(
@@ -207,8 +204,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (byId("studentDirectoryNav"))
     byId("studentDirectoryNav").hidden = !isStaff;
   if (byId("student-directory")) byId("student-directory").hidden = !isStaff;
-  if (byId("settingsNav") && isStudent) byId("settingsNav").hidden = true;
-  if (isStudent && byId("settings")) byId("settings").hidden = true;
+
   document
     .querySelectorAll(
       '.nav-item[data-page="attendance"], .nav-item[data-page="reports"]',
