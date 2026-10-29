@@ -4,3 +4,5 @@ database
 
 .env
 dist/
+
+cardlogin.ts
