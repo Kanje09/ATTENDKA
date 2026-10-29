@@ -6,12 +6,10 @@ import eventsRouter from "../routes/events_route.js";
 import directoryRouter from "../routes/directory_route.js";
 import adminRouter from "../routes/admin_route.js";
 import { errorHandler } from "../middleware/errorHandler.js";
-import cardLoginRouter from "../routes/cardlogin.js";
 
 const app = express();
 
 app.disable("x-powered-by");
-app.set("trust proxy", 1);
 app.use(express.json({ limit: "32kb" }));
 app.use((req, res, next) => {
     const origin = req.header("origin");
@@ -55,7 +53,6 @@ app.use("/api", attendanceRouter);
 app.use("/api", eventsRouter);
 app.use("/api", directoryRouter);
 app.use("/api/admin", adminRouter);
-app.use(cardLoginRouter);
 
 
 app.use((_req, res) => {
