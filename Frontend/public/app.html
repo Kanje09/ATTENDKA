@@ -8,7 +8,7 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap"
     rel="stylesheet">
-  <link rel="stylesheet" href="../css/app.css">
+  <link rel="stylesheet" href="../css/app.css?v=20261107">
   <link rel="icon" type="image/png" href="../images/logo.png">
 </head>
 
@@ -435,13 +435,13 @@
               <h3>Create attendance event</h3>
             </div>
             <form id="eventForm" class="api-form event-creation-form">
-              <div class="event-field">
+              <div class="event-field event-title-field">
                 <label for="eventTitle">Event title</label><input id="eventTitle" maxlength="200" required>
               </div>
-              <div class="event-field">
+              <div class="event-field event-venue-field">
                 <label for="eventVenue">Venue</label><input id="eventVenue" maxlength="150" placeholder="Event venue">
               </div>
-              <div class="event-field">
+              <div class="event-field event-type-field">
                 <label for="eventType">Event type</label>
                 <select id="eventType" required>
                   <option value="academic">Academic</option>
@@ -456,17 +456,19 @@
                 <div><label for="eventStart">Start</label><input id="eventStart" type="datetime-local" required></div>
                 <div><label for="eventEnd">End</label><input id="eventEnd" type="datetime-local" required></div>
               </div>
-              <div class="event-field">
+              <div class="event-field event-department-field">
                 <label for="eventDepartment">Department (blank means school-wide)</label><select id="eventDepartment">
                   <option value="">School-wide</option>
                 </select>
               </div>
-              <div class="event-field">
+              <div class="event-field event-points-field">
                 <label for="eventPoints">Attendance points</label><input id="eventPoints" type="number" min="0" step="1"
                   value="0">
               </div>
-              <button class="btn primary" type="submit">Create event</button>
-              <p class="api-message" id="eventMessage" role="status"></p>
+              <div class="event-form-actions">
+                <button class="btn primary" type="submit">Create event</button>
+                <p class="api-message" id="eventMessage" role="status"></p>
+              </div>
             </form>
           </section>
 
