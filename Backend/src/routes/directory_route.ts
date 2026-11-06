@@ -10,7 +10,10 @@ directoryRouter.get(
     "/departments",
     asyncHandler(async (_req, res) => {
         const result = await pool.query(
-            "SELECT department_id, code, name FROM departments WHERE is_active = TRUE ORDER BY name",
+            `SELECT d.department_id, d.code, d.name
+             FROM departments d
+             WHERE d.is_active = TRUE
+             ORDER BY d.name`,
         );
         res.json({ ok: true, departments: result.rows });
     }),
@@ -27,7 +30,7 @@ directoryRouter.get(
         }
         const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
         const yearLevel = req.query.year_level === undefined ? null : Number(req.query.year_level);
-        if (yearLevel !== null && (!Number.isSafeInteger(yearLevel) || yearLevel < 1 || yearLevel > 10)) {
+        if (yearLevel !== null && (!Number.isSafeInteger(yearLevel) || yearLevel < 1 || yearLevel > 5)) {
             throw new HttpError(400, "invalid_year_level");
         }
         const teacherDepartment = req.authUser!.role === "teacher"
@@ -51,11 +54,10 @@ directoryRouter.get(
                AND ($4::int IS NULL OR s.year_level = $4)
                AND ($5::int IS NULL OR s.year_level = $5)
                AND ($2::text = '' OR s.student_no ILIKE '%' || $2 || '%'
-                    OR u.first_name ILIKE '%' || $2 || '%'
-                    OR u.last_name ILIKE '%' || $2 || '%'
-                    OR concat_ws(' ', u.first_name, u.middle_name, u.last_name) ILIKE '%' || $2 || '%')
-             ORDER BY u.last_name, u.first_name
-             LIMIT 500`,
+                      OR u.first_name ILIKE '%' || $2 || '%'
+                      OR u.last_name ILIKE '%' || $2 || '%'
+                      OR concat_ws(' ', u.first_name, u.middle_name, u.last_name) ILIKE '%' || $2 || '%')
+               ORDER BY u.last_name, u.first_name`,
             [
                 departmentId ?? null,
                 search,
@@ -268,7 +270,7 @@ directoryRouter.get(
             }
         }
         const result = await pool.query(
-            `SELECT u.user_id, u.first_name, u.last_name, t.employee_no
+            `SELECT t.teacher_id, u.user_id, u.first_name, u.last_name, t.employee_no
              FROM team_advisers ta
              JOIN teachers t ON t.teacher_id = ta.teacher_id
              JOIN users u ON u.user_id = t.user_id

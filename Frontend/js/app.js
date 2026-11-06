@@ -3,6 +3,25 @@ function logout() {
   window.location.href = "index.html";
 }
 
+function isEventAttendanceOpen(item) {
+  return Boolean(
+    item.requires_attendance &&
+    item.attendance_open === true &&
+    new Date(item.end_datetime).getTime() > Date.now() &&
+    !["done", "moved", "cancelled"].includes(item.event_status),
+  );
+}
+
+function renderAttendanceSummary(events) {
+  const openEvents = events.filter(isEventAttendanceOpen).length;
+  const status = openEvents ? "Open" : "Closed";
+  for (const id of ["eventAttendanceSummary", "studentAttendanceSummary"]) {
+    const element = document.getElementById(id);
+    if (!element) continue;
+    element.innerHTML = `<span class="attendance-${status.toLowerCase()}-badge">Attendance ${status}</span>${openEvents ? `<small>${openEvents} event${openEvents === 1 ? "" : "s"} accepting check-ins</small>` : ""}`;
+  }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   const $ = (selector) => document.querySelector(selector);
   const byId = (id) => document.getElementById(id);
@@ -88,8 +107,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     "rfid-management",
     "accounts-management",
     "student-photos",
-    "student-events",
+    "student-todo-list",
     "student-directory",
+    "teams",
   ]) {
     const page = byId(pageId);
     if (page && content && page.parentElement !== content) content.append(page);
@@ -144,20 +164,22 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (isStudent) {
     document.querySelector(".topbar .search")?.setAttribute("hidden", "");
     document.querySelector(".avatar-actions")?.setAttribute("hidden", "");
+    if (byId("dashboardEventsPanel")) byId("dashboardEventsPanel").hidden = true;
   }
 
-  const masterlistsPage = byId("masterlists");
-  if (masterlistsPage) masterlistsPage.hidden = !isAdmin;
+  const teamsPage = byId("teams");
+  if (teamsPage) teamsPage.hidden = !isAdmin;
   const adviserPage = byId("team-adviser");
   if (adviserPage) adviserPage.hidden = currentUser.role !== "teacher";
   if (byId("eventList")?.closest(".calendar-events"))
     byId("eventList").closest(".calendar-events").hidden = isStudent;
+  if (isAdmin) {
+    const eventsPage = byId("event-management");
+    const eventCalendarList = byId("eventList")?.closest(".calendar-events");
+    if (eventsPage && eventCalendarList) eventsPage.append(eventCalendarList);
+  }
   if (byId("rfidEventAssignment"))
     byId("rfidEventAssignment").hidden = !isAdmin;
-  if (byId("studentEventList")) {
-    byId("studentEventList").closest(".panel").hidden = !isStudent;
-  }
-
   if (byId("settingsNav")) byId("settingsNav").hidden = false;
   if (byId("settings")) byId("settings").hidden = false;
   
@@ -175,7 +197,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.querySelectorAll('.nav-item[data-page="admin"]').forEach((item) => {
     item.hidden = !isAdmin;
   });
-  if (byId("masterlistsNav")) byId("masterlistsNav").hidden = !isAdmin;
+  if (byId("teamsNav")) byId("teamsNav").hidden = !isAdmin;
   for (const id of [
     "eventsNav",
     "rfidNav",
@@ -189,13 +211,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     "rfid-management",
     "accounts-management",
     "student-photos",
+    "teams",
   ]) {
     if (byId(pageId)) byId(pageId).hidden = !isAdmin;
   }
   if (byId("teamAdviserNav"))
     byId("teamAdviserNav").hidden = currentUser.role !== "teacher";
-  if (byId("studentEventsNav")) byId("studentEventsNav").hidden = !isStudent;
-  if (byId("student-events")) byId("student-events").hidden = !isStudent;
+  if (byId("studentTodoNav")) byId("studentTodoNav").hidden = !isStudent;
+  if (byId("student-todo-list")) byId("student-todo-list").hidden = !isStudent;
   const calendarNav = document.querySelector('.nav-item[data-page="calendar"]');
   if (calendarNav) {
     const label = calendarNav.querySelector(".label");
@@ -433,16 +456,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
+  let departmentsForUI = [];
   async function loadDepartments() {
     const result = await api.request("/departments");
+    departmentsForUI = result.departments;
     for (const id of [
       "staffDepartment",
       "eventDepartment",
-      "masterlistDepartment",
       "fCourse",
       "directoryDepartment",
       "editStudentDepartment",
       "managedDepartment",
+      "teamMemberDepartment",
     ]) {
       const select = byId(id);
       if (!select) continue;
@@ -466,16 +491,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     for (const id of [
       "directoryYear",
-      "masterlistCandidateYear",
       "teamCandidateYear",
     ]) {
       const select = byId(id);
       if (!select) continue;
       select.replaceChildren(new Option("All year levels", ""));
-      for (let year = 1; year <= 10; year += 1) {
+      for (let year = 1; year <= 5; year += 1) {
         select.add(new Option(`Year ${year}`, String(year)));
       }
     }
+    renderDepartmentStudentTables();
   }
 
   function configureStaffRole() {
@@ -671,26 +696,54 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  submitForm(byId("masterlistForm"), "masterlistMessage", async () => {
-    await api.request("/admin/masterlists", {
-      method: "POST",
-      body: JSON.stringify({
-        department_id: Number(byId("masterlistDepartment").value),
-        school_year: byId("masterlistYear").value.trim(),
-        semester: byId("masterlistSemester").value,
-      }),
-    });
-    await loadMasterlists();
+  let selectedTeamLogo = null;
+  async function encodeTeamLogo(file) {
+    if (!file) return null;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 2 * 1024 * 1024) {
+      throw new Error("Choose a PNG, JPEG, or WebP logo smaller than 2 MB.");
+    }
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, 512 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) {
+      bitmap.close();
+      throw new Error("The team logo could not be processed.");
+    }
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    return canvas.toDataURL("image/jpeg", 0.78);
+  }
+  byId("teamLogoFile")?.addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    const preview = byId("teamLogoPreview");
+    if (!preview) return;
+    try {
+      selectedTeamLogo = file ? await encodeTeamLogo(file) : null;
+      if (selectedTeamLogo) {
+        preview.innerHTML = `<img src="${selectedTeamLogo}" alt="Team logo preview">`;
+      } else {
+        preview.textContent = "No logo selected";
+      }
+    } catch (error) {
+      selectedTeamLogo = null;
+      preview.textContent = error.message;
+      event.target.value = "";
+    }
   });
-
   submitForm(byId("teamForm"), "teamMessage", async () => {
     await api.request("/admin/teams", {
       method: "POST",
       body: JSON.stringify({
         name: byId("teamName").value.trim(),
         school_year: byId("teamSchoolYear").value.trim(),
+        logo_url: selectedTeamLogo,
       }),
     });
+    selectedTeamLogo = null;
+    byId("teamLogoPreview").textContent = "No logo selected";
     await loadTeams();
   });
 
@@ -749,6 +802,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           ),
         );
       }
+      renderDepartmentStudentTables();
     } catch (error) {
       container.textContent = error.message;
     }
@@ -767,30 +821,202 @@ document.addEventListener("DOMContentLoaded", async () => {
       query.set("year_level", byId("directoryYear").value);
     if (byId("directorySearch")?.value.trim())
       query.set("search", byId("directorySearch").value.trim());
-    const rows = byId("directoryRows");
     try {
       const result = await api.request(
         `/students${query.size ? `?${query}` : ""}`,
       );
-      rows.innerHTML = result.students.length
-        ? result.students
-            .map(
-              (student) => `<tr>
-            <td>${escapeHtml(`${student.last_name}, ${student.first_name}${student.middle_name ? ` ${student.middle_name}` : ""}`)}</td>
-            <td>${escapeHtml(student.student_no)}</td>
-            <td>${escapeHtml(student.department_code)}</td>
-            <td>${escapeHtml(student.year_level)}</td>
-            <td>${escapeHtml(student.section || "—")}</td>
-            <td>${isAdmin ? `<button type="button" class="btn edit-student" data-student="${student.student_id}">Edit</button>` : "—"}</td>
-          </tr>`,
-            )
-            .join("")
-        : '<tr><td colspan="6" class="empty">No students match your filters.</td></tr>';
-      rows.dataset.students = JSON.stringify(result.students);
+      directoryStudents = result.students;
+      renderDepartmentStudentTables();
     } catch (error) {
-      rows.innerHTML = `<tr><td colspan="6" class="empty">${escapeHtml(error.message)}</td></tr>`;
+      const container = byId("directoryDepartments");
+      if (container) container.textContent = error.message;
     }
   }
+  let directoryStudents = [];
+  let studentEditMode = false;
+  let editingAdvisorDepartment = null;
+  const selectedStudentIds = new Set();
+  function renderDepartmentStudentTables() {
+    const container = byId("directoryDepartments");
+    if (!container) return;
+    const selectedDepartment = byId("directoryDepartment")?.value || "";
+    const selectedYear = byId("directoryYear")?.value || "";
+    const departments = departmentsForUI.filter(
+      (department) => !selectedDepartment || String(department.department_id) === selectedDepartment,
+    );
+    container.innerHTML = departments.length
+      ? departments.map((department) => {
+          const students = directoryStudents.filter(
+            (student) => Number(student.department_id) === Number(department.department_id) &&
+              (!selectedYear || String(student.year_level) === selectedYear),
+          );
+          const departmentTeachers = availableTeachers.filter(
+            (teacher) => Number(teacher.teaching_department_id) === Number(department.department_id),
+          );
+          const advisorEditor = editingAdvisorDepartment === Number(department.department_id)
+            ? `<div class="department-advisor-editor">
+                 <select class="department-advisor-select" aria-label="Department advisor">
+                   <option value="">Select teacher</option>
+                   ${availableTeachers.map((teacher) => `<option value="${teacher.teacher_id}" ${Number(departmentTeachers[0]?.teacher_id) === Number(teacher.teacher_id) ? "selected" : ""}>${escapeHtml(`${teacher.first_name} ${teacher.last_name}`)}${teacher.teaching_department_id && Number(teacher.teaching_department_id) !== Number(department.department_id) ? ` · ${escapeHtml(teacher.teaching_department_code || "currently assigned elsewhere")}` : ""}</option>`).join("")}
+                 </select>
+                 <button class="btn primary" type="button" data-action="save-advisor" data-department="${department.department_id}">Save advisor</button>
+                 <button class="btn" type="button" data-action="cancel-advisor">Cancel</button>
+               </div>`
+            : `<span class="department-advisor-name">${escapeHtml(departmentTeachers.map((teacher) => `${teacher.first_name} ${teacher.last_name}`).join(", ") || "Not assigned")}</span>
+               ${isAdmin ? `<button class="btn" type="button" data-action="edit-advisor" data-department="${department.department_id}">Edit advisor</button>` : ""}`;
+          return `<section class="department-student-group">
+            <header class="department-student-heading">
+              <div><h3>${escapeHtml(department.code)} · ${escapeHtml(department.name)}</h3>
+                <div class="department-advisor"><strong>Department Advisor:</strong>${advisorEditor}</div>
+              </div>
+              <span>${students.length} student${students.length === 1 ? "" : "s"}</span>
+            </header>
+            <div class="table-wrap">
+              <table>
+                <thead><tr>${studentEditMode ? "<th>Select</th>" : ""}<th>Student</th><th>Student ID</th><th>Year</th><th>Section</th></tr></thead>
+                <tbody>${students.length ? students.map((student) => `<tr class="department-student-row" data-student="${student.student_id}">
+                  ${studentEditMode ? `<td><input type="checkbox" class="department-student-select" aria-label="Select ${escapeHtml(student.first_name)} ${escapeHtml(student.last_name)}" value="${student.student_id}" ${selectedStudentIds.has(Number(student.student_id)) ? "checked" : ""}></td>` : ""}
+                  <td>${escapeHtml(`${student.last_name}, ${student.first_name}${student.middle_name ? ` ${student.middle_name}` : ""}`)}</td>
+                  <td>${escapeHtml(student.student_no)}</td><td>${escapeHtml(student.year_level)}</td><td>${escapeHtml(student.section || "—")}</td>
+                </tr>`).join("") : `<tr><td colspan="${studentEditMode ? 5 : 4}" class="empty">No students match the current filters.</td></tr>`}</tbody>
+              </table>
+            </div>
+          </section>`;
+        }).join("")
+      : '<p class="empty">No departments are available.</p>';
+  }
+  function updateStudentEditActions() {
+    const toggle = byId("toggleStudentEdit");
+    const edit = byId("editSelectedStudent");
+    const remove = byId("removeSelectedStudent");
+    if (toggle) {
+      toggle.hidden = !isAdmin;
+      toggle.textContent = studentEditMode ? "Done editing" : "Edit";
+      toggle.setAttribute("aria-pressed", String(studentEditMode));
+    }
+    if (edit) {
+      edit.hidden = !studentEditMode;
+      edit.disabled = selectedStudentIds.size !== 1;
+    }
+    if (remove) {
+      remove.hidden = !studentEditMode;
+      remove.disabled = selectedStudentIds.size !== 1;
+    }
+  }
+  updateStudentEditActions();
+  on("toggleStudentEdit", "click", () => {
+    studentEditMode = !studentEditMode;
+    selectedStudentIds.clear();
+    updateStudentEditActions();
+    renderDepartmentStudentTables();
+  });
+  byId("directoryDepartments")?.addEventListener("change", (event) => {
+    if (!event.target.matches(".department-student-select")) return;
+    const studentId = Number(event.target.value);
+    if (event.target.checked) {
+      selectedStudentIds.clear();
+      selectedStudentIds.add(studentId);
+      byId("directoryDepartments").querySelectorAll(".department-student-select").forEach((input) => {
+        if (input !== event.target) input.checked = false;
+      });
+    } else {
+      selectedStudentIds.delete(studentId);
+    }
+    updateStudentEditActions();
+  });
+  byId("directoryDepartments")?.addEventListener("click", async (event) => {
+    const action = event.target.closest("[data-action]");
+    if (action) {
+      const departmentId = Number(action.dataset.department);
+      if (action.dataset.action === "edit-advisor") {
+        if (isAdmin) {
+          editingAdvisorDepartment = departmentId;
+          renderDepartmentStudentTables();
+        }
+      } else if (action.dataset.action === "cancel-advisor") {
+        editingAdvisorDepartment = null;
+        renderDepartmentStudentTables();
+      } else if (action.dataset.action === "save-advisor") {
+        const select = action.closest(".department-advisor-editor").querySelector("select");
+        const teacherId = Number(select.value);
+        const teacher = availableTeachers.find((item) => Number(item.teacher_id) === teacherId);
+        if (!teacher) {
+          setFormMessage("directoryMessage", "Choose a teacher to assign to this department.");
+          return;
+        }
+        action.disabled = true;
+        try {
+          await api.request(`/admin/teachers/${teacherId}/department`, {
+            method: "PATCH",
+            body: JSON.stringify({
+              department_id: departmentId,
+              year_level: teacher.teaching_year_level ?? null,
+            }),
+          });
+          editingAdvisorDepartment = null;
+          await Promise.all([loadAdminUsers(), loadDepartments()]);
+          setFormMessage("directoryMessage", "Department advisor updated.", true);
+        } catch (error) {
+          setFormMessage("directoryMessage", error.message);
+          action.disabled = false;
+        }
+      }
+      return;
+    }
+    const row = event.target.closest(".department-student-row");
+    if (!row || !studentEditMode || event.target.closest("input")) return;
+    const checkbox = row.querySelector(".department-student-select");
+    if (checkbox) {
+      checkbox.checked = !checkbox.checked;
+      checkbox.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  });
+  byId("editSelectedStudent")?.addEventListener("click", () => {
+    if (!isAdmin || selectedStudentIds.size !== 1) return;
+    const student = directoryStudents.find((item) => Number(item.student_id) === [...selectedStudentIds][0]);
+    if (!student) return;
+    byId("editStudentId").value = student.student_id;
+    byId("editStudentFirst").value = student.first_name || "";
+    byId("editStudentMiddle").value = student.middle_name || "";
+    byId("editStudentLast").value = student.last_name || "";
+    byId("editStudentEmail").value = student.email || "";
+    byId("editStudentNo").value = student.student_no || "";
+    byId("editStudentDepartment").value = student.department_id;
+    byId("editStudentYear").value = student.year_level;
+    byId("editStudentSection").value = student.section || "";
+    byId("studentEditPanel").hidden = false;
+    byId("studentEditPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  byId("removeSelectedStudent")?.addEventListener("click", async () => {
+    if (!isAdmin || selectedStudentIds.size !== 1) return;
+    const studentId = [...selectedStudentIds][0];
+    const student = directoryStudents.find(
+      (item) => Number(item.student_id) === studentId,
+    );
+    if (!student) return;
+    const studentName = `${student.first_name} ${student.last_name}`;
+    if (!window.confirm(
+      `Permanently remove ${studentName} from the system? This also deletes their attendance, points, checklist, team, masterlist, RFID card, and card scan records. This cannot be undone.`,
+    )) return;
+    const button = byId("removeSelectedStudent");
+    if (button) button.disabled = true;
+    try {
+      await api.request(`/admin/students/${studentId}`, { method: "DELETE" });
+      selectedStudentIds.clear();
+      studentEditMode = false;
+      byId("studentEditPanel").hidden = true;
+      updateStudentEditActions();
+      setFormMessage("directoryMessage", `${studentName} was permanently removed.`, true);
+      await Promise.all([
+        loadStudentDirectory(),
+        loadStudentChoices(),
+        loadTeamRosters(),
+      ]);
+    } catch (error) {
+      setFormMessage("directoryMessage", error.message);
+      if (button) button.disabled = false;
+    }
+  });
   let directorySearchTimer;
   on("directorySearch", "input", () => {
     window.clearTimeout(directorySearchTimer);
@@ -803,29 +1029,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
   on("directoryYear", "change", () => {
     void loadStudentDirectory();
-  });
-  byId("directoryRows")?.addEventListener("click", (event) => {
-    const button = event.target.closest(".edit-student");
-    if (!button || !isAdmin) return;
-    const students = JSON.parse(byId("directoryRows").dataset.students || "[]");
-    const student = students.find(
-      (item) => String(item.student_id) === button.dataset.student,
-    );
-    if (!student) return;
-    byId("editStudentId").value = student.student_id;
-    byId("editStudentFirst").value = student.first_name || "";
-    byId("editStudentMiddle").value = student.middle_name || "";
-    byId("editStudentLast").value = student.last_name || "";
-    byId("editStudentEmail").value = student.email || "";
-    byId("editStudentNo").value = student.student_no || "";
-    byId("editStudentDepartment").value = student.department_id;
-    byId("editStudentYear").value = student.year_level;
-    byId("editStudentSection").value = student.section || "";
-    byId("studentEditPanel").hidden = false;
-    byId("studentEditPanel").scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
   });
   byId("cancelStudentEdit")?.addEventListener("click", () => {
     byId("studentEditPanel").hidden = true;
@@ -848,6 +1051,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         }),
       });
       setFormMessage("studentEditMessage", "Student updated.", true);
+      byId("studentEditPanel").hidden = true;
+      studentEditMode = false;
+      selectedStudentIds.clear();
+      updateStudentEditActions();
       await loadStudentDirectory();
       await loadStudentChoices();
     } catch (error) {
@@ -890,7 +1097,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function renderStudentChoices(container, students, checked = () => false) {
     if (!students.length) {
-      container.textContent = "No students found for this masterlist.";
+      container.textContent = "No students found in this department.";
       return;
     }
     const groups = new Map();
@@ -898,7 +1105,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const groupName = `${student.department_code || student.department || "Department"} · Year ${student.year_level}`;
       groups.set(groupName, [...(groups.get(groupName) || []), student]);
     });
-    container.innerHTML = `<label class="masterlist-select-all"><input type="checkbox" class="student-select-all"> Select all visible</label>${Array.from(
+    container.innerHTML = `<label class="student-select-all-row"><input type="checkbox" class="student-select-all"> Select all visible</label>${Array.from(
       groups,
       ([groupName, members]) => `
         <section class="student-choice-group"><h4>${escapeHtml(groupName)}</h4>
@@ -937,11 +1144,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
   for (const [searchId, yearId, containerId] of [
-    [
-      "masterlistCandidateSearch",
-      "masterlistCandidateYear",
-      "masterlistCandidates",
-    ],
     ["teamCandidateSearch", "teamCandidateYear", "teamCandidates"],
   ]) {
     on(searchId, "input", () =>
@@ -1085,64 +1287,153 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  let masterlistsForUI = [];
-  async function loadMasterlists() {
-    if (!isAdmin) return;
-    const result = await api.request("/masterlists");
-    masterlistsForUI = result.masterlists;
-    for (const id of ["masterlistSelect", "teamMasterlistSelect"]) {
-      const select = byId(id);
-      if (!select) continue;
-      const selected = select.value;
-      const placeholder = "Select masterlist";
-      select.replaceChildren(new Option(placeholder, ""));
-      result.masterlists.forEach((item) => {
-        select.add(
-          new Option(
-            `${item.department} · ${item.school_year} · ${item.semester} (${item.student_count})`,
-            item.masterlist_id,
-          ),
-        );
-      });
-      if (
-        result.masterlists.some(
-          (item) => String(item.masterlist_id) === selected,
-        )
-      ) {
-        select.value = selected;
-      }
-    }
-  }
-
+  let teamsForUI = [];
   async function loadTeams() {
     if (!isAdmin) return;
     const result = await api.request("/teams");
+    teamsForUI = result.teams;
     const select = byId("teamSelect");
     if (select) {
+      const selected = select.value;
       select.replaceChildren(new Option("Select team", ""));
       result.teams.forEach((team) =>
         select.add(
           new Option(`${team.name} · ${team.school_year}`, team.team_id),
         ),
       );
+      if (result.teams.some((team) => String(team.team_id) === selected)) {
+        select.value = selected;
+      }
     }
+    await loadTeamRosters(result.teams);
   }
 
   async function loadTeamAdvisers() {
     if (!isAdmin) return;
     const result = await api.request("/admin/users?role=teacher");
-    const select = byId("teamAdviser");
-    if (!select) return;
-    select.replaceChildren(new Option("Select teacher", ""));
-    result.users.forEach((teacher) =>
-      select.add(
-        new Option(
-          `${teacher.first_name} ${teacher.last_name} · ${teacher.employee_no || teacher.username}`,
-          teacher.teacher_id,
+    availableTeachers = result.users;
+    for (const id of ["teamAdviser", "editTeamAdviser"]) {
+      const select = byId(id);
+      if (!select) continue;
+      select.replaceChildren(new Option(id === "teamAdviser" ? "Select teacher" : "No adviser", ""));
+      result.users.forEach((teacher) =>
+        select.add(
+          new Option(
+            `${teacher.first_name} ${teacher.last_name} · ${teacher.employee_no || teacher.username}`,
+            teacher.teacher_id,
+          ),
         ),
-      ),
-    );
+      );
+    }
+    renderDepartmentStudentTables();
   }
+
+  async function loadTeamRosters(teams = teamsForUI) {
+    const container = byId("teamTables");
+    if (!container || !isAdmin) return;
+    if (!teams.length) {
+      container.textContent = "No teams have been created yet.";
+      return;
+    }
+    try {
+      const rosters = await Promise.all(teams.map(async (team) => {
+        const [roster, advisers] = await Promise.all([
+          api.request(`/teams/${team.team_id}/roster`),
+          api.request(`/teams/${team.team_id}/advisers`),
+        ]);
+        return { team, members: roster.members, advisers: advisers.advisers };
+      }));
+      container.innerHTML = rosters.map(({ team, members, advisers }) => `
+        <section class="team-roster-card">
+          <header class="team-roster-heading">
+            ${team.logo_url ? `<img class="team-logo" src="${escapeHtml(team.logo_url)}" alt="${escapeHtml(team.name)} logo">` : '<span class="team-logo team-logo-empty" aria-hidden="true">Team</span>'}
+            <div class="team-roster-title"><h3>${escapeHtml(team.name)}</h3>
+              <span>${escapeHtml(team.school_year)} · ${members.length} member${members.length === 1 ? "" : "s"}</span>
+              <small>Advisor: ${escapeHtml(advisers.map((item) => `${item.first_name} ${item.last_name}`).join(", ") || "Not assigned")}</small>
+            </div>
+            <div class="team-roster-actions">
+              <button class="btn edit-team" type="button" data-team="${team.team_id}">Edit team</button>
+              <button class="btn delete-team" type="button" data-team="${team.team_id}">Delete team</button>
+            </div>
+          </header>
+          <div class="table-wrap">
+            <table><thead><tr><th>Student</th><th>Student ID</th><th>Year</th><th>Section</th></tr></thead>
+              <tbody>${members.length ? members.map((student) => `<tr>
+                <td>${escapeHtml(`${student.last_name}, ${student.first_name}`)}</td>
+                <td>${escapeHtml(student.student_no)}</td><td>${escapeHtml(student.year_level)}</td><td>${escapeHtml(student.section || "—")}</td>
+              </tr>`).join("") : '<tr><td colspan="4" class="empty">No students are assigned to this team.</td></tr>'}</tbody>
+            </table>
+          </div>
+        </section>`).join("");
+    } catch (error) {
+      container.textContent = error.message;
+    }
+  }
+  byId("teamTables")?.addEventListener("click", async (event) => {
+    const edit = event.target.closest(".edit-team");
+    const remove = event.target.closest(".delete-team");
+    if (!isAdmin || (!edit && !remove)) return;
+    const teamId = Number((edit || remove).dataset.team);
+    const team = teamsForUI.find((item) => Number(item.team_id) === teamId);
+    if (!team) return;
+    if (remove) {
+      if (!window.confirm(`Delete "${team.name}" and remove its member/adviser assignments?`)) return;
+      remove.disabled = true;
+      try {
+        await api.request(`/admin/teams/${teamId}`, { method: "DELETE" });
+        await loadTeams();
+      } catch (error) {
+        setFormMessage("teamAssignmentMessage", error.message);
+        remove.disabled = false;
+      }
+      return;
+    }
+    byId("editTeamId").value = team.team_id;
+    byId("editTeamName").value = team.name;
+    byId("editTeamSchoolYear").value = team.school_year;
+    byId("editTeamLogoFile").value = "";
+    const advisers = await api.request(`/teams/${teamId}/advisers`);
+    byId("editTeamAdviser").value = advisers.advisers[0]?.teacher_id || "";
+    byId("teamEditPanel").hidden = false;
+    byId("teamEditPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  byId("teamEditForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const teamId = Number(byId("editTeamId").value);
+    const saveButton = byId("teamEditForm").querySelector('[type="submit"]');
+    saveButton.disabled = true;
+    try {
+      const logoFile = byId("editTeamLogoFile").files?.[0];
+      const changes = {
+        name: byId("editTeamName").value.trim(),
+        school_year: byId("editTeamSchoolYear").value.trim(),
+      };
+      if (logoFile) changes.logo_url = await encodeTeamLogo(logoFile);
+      await api.request(`/admin/teams/${teamId}`, {
+        method: "PATCH",
+        body: JSON.stringify(changes),
+      });
+      await api.request(`/admin/teams/${teamId}/advisers`, {
+        method: "POST",
+        body: JSON.stringify({
+          teacher_id: byId("editTeamAdviser").value ? Number(byId("editTeamAdviser").value) : null,
+        }),
+      });
+      setFormMessage("teamEditMessage", "Team updated.", true);
+      byId("teamEditPanel").hidden = true;
+      await loadTeams();
+    } catch (error) {
+      setFormMessage("teamEditMessage", error.message);
+    } finally {
+      saveButton.disabled = false;
+    }
+  });
+  on("cancelTeamEdit", "click", () => {
+    byId("teamEditPanel").hidden = true;
+  });
+  on("reloadTeams", "click", () => {
+    void loadTeams();
+  });
 
   async function loadAdvisoryTeams() {
     if (currentUser.role !== "teacher") return;
@@ -1213,132 +1504,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
   });
 
-  async function loadMasterlistCandidates() {
-    const masterlistId = Number(byId("masterlistSelect")?.value);
-    const container = byId("masterlistCandidates");
-    if (!masterlistId || !container) {
-      if (container)
-        container.textContent = "Choose a masterlist to load students.";
-      return;
-    }
-    const result = await api.request(
-      `/admin/masterlists/${masterlistId}/candidates`,
-    );
-    renderStudentChoices(
-      container,
-      result.students,
-      (student) => student.selected,
-    );
-    applyStudentChoiceFilters(
-      "masterlistCandidates",
-      "masterlistCandidateSearch",
-      "masterlistCandidateYear",
-    );
-  }
-  on("masterlistSelect", "change", () => {
-    void loadMasterlistCandidates();
-  });
-  on("masterlistSelect", "change", () => {
-    const masterlist = Array.from(byId("masterlistSelect").options).find(
-      (option) => option.value === byId("masterlistSelect").value,
-    );
-    const selected = masterlistsForUI.find(
-      (item) => String(item.masterlist_id) === masterlist?.value,
-    );
-    if (selected) {
-      byId("masterlistDepartment").value = selected.department_id;
-      byId("masterlistYear").value = selected.school_year;
-      byId("masterlistSemester").value = selected.semester;
-    }
-  });
-
-  on("saveMasterlistStudents", "click", async () => {
-    const masterlistId = Number(byId("masterlistSelect")?.value);
-    const studentIds = Array.from(
-      byId("masterlistCandidates")?.querySelectorAll(
-        ".student-choice:checked",
-      ) || [],
-    ).map((input) => Number(input.value));
-    try {
-      if (!masterlistId || !studentIds.length)
-        throw new Error("Select at least one student.");
-      const result = await api.request(
-        `/admin/masterlists/${masterlistId}/students`,
-        {
-          method: "POST",
-          body: JSON.stringify({ student_ids: studentIds }),
-        },
-      );
-      setFormMessage(
-        "masterlistStudentsMessage",
-        `${result.added} student(s) added to the masterlist.`,
-        true,
-      );
-      await loadMasterlists();
-      await loadMasterlistCandidates();
-    } catch (error) {
-      setFormMessage("masterlistStudentsMessage", error.message);
-    }
-  });
-
-  on("removeMasterlistStudents", "click", async () => {
-    const masterlistId = Number(byId("masterlistSelect")?.value);
-    const studentIds = Array.from(
-      byId("masterlistCandidates")?.querySelectorAll(
-        ".student-choice:checked",
-      ) || [],
-    ).map((input) => Number(input.value));
-    try {
-      if (!masterlistId || !studentIds.length)
-        throw new Error("Select students to remove from the masterlist.");
-      const result = await api.request(
-        `/admin/masterlists/${masterlistId}/students`,
-        {
-          method: "DELETE",
-          body: JSON.stringify({ student_ids: studentIds }),
-        },
-      );
-      setFormMessage(
-        "masterlistStudentsMessage",
-        `${result.removed} student(s) removed from the masterlist.`,
-        true,
-      );
-      await loadMasterlists();
-      await loadMasterlistCandidates();
-    } catch (error) {
-      setFormMessage("masterlistStudentsMessage", error.message);
-    }
-  });
-
-  on("updateMasterlist", "click", async () => {
-    const masterlistId = Number(byId("masterlistSelect")?.value);
-    try {
-      if (!masterlistId) throw new Error("Select a masterlist to update.");
-      await api.request(`/admin/masterlists/${masterlistId}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          department_id: Number(byId("masterlistDepartment").value),
-          school_year: byId("masterlistYear").value.trim(),
-          semester: byId("masterlistSemester").value,
-        }),
-      });
-      setFormMessage("masterlistMessage", "Masterlist updated.", true);
-      await loadMasterlists();
-      await loadMasterlistCandidates();
-    } catch (error) {
-      setFormMessage("masterlistMessage", error.message);
-    }
-  });
-
   async function loadTeamCandidates() {
-    const masterlistId = Number(byId("teamMasterlistSelect")?.value);
+    const departmentId = Number(byId("teamMemberDepartment")?.value);
     const container = byId("teamCandidates");
-    if (!masterlistId || !container) {
+    if (!departmentId || !container) {
       if (container)
-        container.textContent = "Choose a masterlist to select students.";
+        container.textContent = "Choose a department to select students.";
       return;
     }
-    const result = await api.request(`/masterlists/${masterlistId}/students`);
+    const result = await api.request(`/students?department_id=${departmentId}`);
     renderStudentChoices(container, result.students);
     applyStudentChoiceFilters(
       "teamCandidates",
@@ -1346,32 +1520,29 @@ document.addEventListener("DOMContentLoaded", async () => {
       "teamCandidateYear",
     );
   }
-  on("teamMasterlistSelect", "change", () => {
+  on("teamMemberDepartment", "change", () => {
     void loadTeamCandidates();
   });
 
   on("assignTeamMembers", "click", async () => {
     const teamId = Number(byId("teamSelect")?.value);
-    const masterlistId = Number(byId("teamMasterlistSelect")?.value);
     const studentIds = Array.from(
       byId("teamCandidates")?.querySelectorAll(".student-choice:checked") || [],
     ).map((input) => Number(input.value));
     try {
-      if (!teamId || !masterlistId || !studentIds.length) {
-        throw new Error("Choose a team, masterlist, and at least one student.");
+      if (!teamId || !studentIds.length) {
+        throw new Error("Choose a team and at least one student.");
       }
       const result = await api.request(`/admin/teams/${teamId}/members/bulk`, {
         method: "POST",
-        body: JSON.stringify({
-          masterlist_id: masterlistId,
-          student_ids: studentIds,
-        }),
+        body: JSON.stringify({ student_ids: studentIds }),
       });
       setFormMessage(
         "teamAssignmentMessage",
         `${result.added} student(s) added to the team.`,
         true,
       );
+      await loadTeamRosters();
     } catch (error) {
       setFormMessage("teamAssignmentMessage", error.message);
     }
@@ -1387,6 +1558,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         body: JSON.stringify({ teacher_id: teacherId }),
       });
       setFormMessage("teamAssignmentMessage", "Team adviser assigned.", true);
+      await loadTeamRosters();
     } catch (error) {
       setFormMessage("teamAssignmentMessage", error.message);
     }
@@ -1405,6 +1577,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const result = await api.request(
         `/events${eventQuery.size ? `?${eventQuery}` : ""}`,
       );
+      renderAttendanceSummary(result.events);
       const list = byId("eventList");
       const eventSelect = byId("attendanceEvent");
       if (eventSelect) {
@@ -1430,27 +1603,25 @@ document.addEventListener("DOMContentLoaded", async () => {
               <span>${escapeHtml(item.event_type)} · ${escapeHtml(item.department_code || "School-wide")} · ${escapeHtml(item.event_status || "pending")}
                 ${
                   item.requires_attendance
-                    ? item.attendance_open &&
+                    ?                     isEventAttendanceOpen(item) &&
                       !["done", "moved", "cancelled"].includes(
                         item.event_status,
                       )
-                      ? '<span class="attendance-open-badge">Attendance open</span>'
-                      : '<span class="attendance-closed-badge">Attendance closed</span>'
+                      ? '<span class="attendance-open-badge">Attendance Open</span>'
+                      : '<span class="attendance-closed-badge">Attendance Closed</span>'
                     : ""
                 }</span>
               <time>${escapeHtml(formatDate(item.start_datetime))}${item.venue ? ` · ${escapeHtml(item.venue)}` : ""}</time>
               ${
                 isAdmin
                   ? `<div class="event-management-actions event-summary-actions">
-                <button class="btn edit-event" type="button" aria-expanded="false">Edit event</button>
-                <button class="btn open-event-attendance" data-event="${item.event_id}"
-                  data-next-open="${item.attendance_open ? "false" : "true"}" type="button"
-                  ${!["pending", "ongoing", null, undefined].includes(item.event_status) && !item.attendance_open ? "disabled" : ""}>
-                  ${item.attendance_open ? "Close attendance" : ["pending", "ongoing", null, undefined].includes(item.event_status) ? "Open attendance now" : "Attendance closed"}
-                </button>
-                <button class="btn delete-event" data-event="${item.event_id}" type="button">Remove event</button>
+                <button class="btn edit-event" data-event="${item.event_id}" type="button" aria-expanded="false">Edit</button>
+                <button class="btn time-in-event" data-event="${item.event_id}" data-event-end="${escapeHtml(item.end_datetime)}" type="button" ${!item.requires_attendance ? "disabled" : ""}>Time-In</button>
+                <button class="btn time-out-event" data-event="${item.event_id}" data-event-end="${escapeHtml(item.end_datetime)}" type="button" ${!item.requires_attendance ? "disabled" : ""}>Time-Out</button>
+                <button class="btn close-attendance-event" data-event="${item.event_id}" type="button" ${!item.requires_attendance ? "disabled" : ""}>Attendance Closed</button>
+                <button class="btn delete-event" data-event="${item.event_id}" type="button">Remove Event</button>
               </div>
-              <div class="event-editor" data-attendance-open="${item.attendance_open === true}" hidden>
+              <div class="event-editor" data-attendance-open="${isEventAttendanceOpen(item)}" hidden>
               <label>Event status
                 <select class="event-lifecycle">
                   ${["pending", "ongoing", "moved", "done", "cancelled"]
@@ -1528,10 +1699,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   byId("eventList")?.addEventListener("click", async (event) => {
     const editButton = event.target.closest(".edit-event");
     const saveButton = event.target.closest(".save-event-status");
-    const openButton = event.target.closest(".open-event-attendance");
+    const timeInButton = event.target.closest(".time-in-event");
+    const timeOutButton = event.target.closest(".time-out-event");
+    const closeAttendanceButton = event.target.closest(".close-attendance-event");
     const deleteButton = event.target.closest(".delete-event");
     if (
-      (!editButton && !saveButton && !openButton && !deleteButton) ||
+      (!editButton && !saveButton && !timeInButton && !timeOutButton && !closeAttendanceButton && !deleteButton) ||
       !isAdmin
     )
       return;
@@ -1541,10 +1714,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       editor.hidden = !editor.hidden;
       row.classList.toggle("is-editing", !editor.hidden);
       editButton.setAttribute("aria-expanded", String(!editor.hidden));
-      editButton.textContent = editor.hidden ? "Edit event" : "Close editor";
+      editButton.textContent = editor.hidden ? "Edit" : "Close editor";
       return;
     }
-    const button = saveButton || openButton || deleteButton;
+    const button = saveButton || timeInButton || timeOutButton || closeAttendanceButton || deleteButton;
     const eventId = button.dataset.event;
     const row = button.closest(".api-event-row");
     try {
@@ -1556,8 +1729,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         await loadEvents();
         return;
       }
-      if (openButton) {
-        const nextOpen = openButton.dataset.nextOpen === "true";
+      if (timeInButton || timeOutButton || closeAttendanceButton) {
+        const nextOpen = !closeAttendanceButton;
+        if (nextOpen && Date.parse(button.dataset.eventEnd) <= Date.now()) {
+          throw new Error(
+            "This event has already ended. Edit its scheduled end time before opening attendance.",
+          );
+        }
+        button.disabled = true;
         await api.request(`/events/${eventId}`, {
           method: "PATCH",
           body: JSON.stringify({ attendance_open: nextOpen }),
@@ -1566,7 +1745,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           "eventCalendarMessage",
           nextOpen
             ? "Attendance is open for this event."
-            : "Attendance is closed for new time-ins. Assigned manual time-outs remain available.",
+            : "Attendance is closed for this event.",
           true,
         );
         await loadEvents();
@@ -1605,6 +1784,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     } catch (error) {
       setFormMessage("eventCalendarMessage", error.message);
     } finally {
+      if (timeInButton?.isConnected) timeInButton.disabled = false;
+      if (timeOutButton?.isConnected) timeOutButton.disabled = false;
+      if (closeAttendanceButton?.isConnected)
+        closeAttendanceButton.disabled = false;
       if (saveButton?.isConnected) {
         saveButton.disabled = false;
         saveButton.classList.remove("is-saving");
@@ -1643,12 +1826,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function eventCalendarCard(item) {
-    const attendanceOpen =
-      item.requires_attendance &&
-      item.attendance_open === true &&
-      !["done", "moved", "cancelled"].includes(item.event_status);
+    const attendanceOpen = isEventAttendanceOpen(item);
     const attendanceBadge = item.requires_attendance
-      ? `<span class="attendance-${attendanceOpen ? "open" : "closed"}-badge">Attendance ${attendanceOpen ? "open" : "closed"}</span>`
+      ? `<span class="attendance-${attendanceOpen ? "open" : "closed"}-badge">Attendance ${attendanceOpen ? "Open" : "Closed"}</span>`
       : "<span>School event</span>";
     return `<article class="api-event-row school-event-card">
       <div class="student-event-details">
@@ -1656,46 +1836,86 @@ document.addEventListener("DOMContentLoaded", async () => {
         <span>${escapeHtml(item.event_type)} · ${escapeHtml(item.event_status || "pending")} · ${attendanceBadge}</span>
         <time>${escapeHtml(formatDate(item.start_datetime))}${item.venue ? ` · ${escapeHtml(item.venue)}` : ""}</time>
         ${item.status_note ? `<span>${escapeHtml(item.status_note)}</span>` : ""}
-        ${
-          isAdmin && item.requires_attendance
-            ? `
-          <div class="event-management-actions calendar-attendance-actions">
-            <button class="btn calendar-attendance-toggle" data-event="${item.event_id}"
-              data-next-open="${attendanceOpen ? "false" : "true"}" type="button"
-              ${!attendanceOpen && !["pending", "ongoing", null, undefined].includes(item.event_status) ? "disabled" : ""}>
-              ${attendanceOpen ? "Close attendance" : "Open attendance"}
-            </button>
-          </div>`
-            : ""
-        }
+        ${isAdmin ? `<div class="event-management-actions calendar-event-actions">
+          <button class="btn edit-event" type="button" data-event="${item.event_id}">Edit</button>
+          <button class="btn delete-event" type="button" data-event="${item.event_id}">Remove Event</button>
+        </div>` : ""}
+      </div>
+    </article>`;
+  }
+
+  function studentEventTodoCard(item) {
+    const attendanceOpen = isEventAttendanceOpen(item);
+    const attendanceBadge = item.requires_attendance
+      ? `<span class="attendance-${attendanceOpen ? "open" : "closed"}-badge">Attendance ${attendanceOpen ? "Open" : "Closed"}</span>`
+      : "<span>School event</span>";
+    const attended = Boolean(item.time_in && ["present", "late"].includes(item.status));
+    const eventStart = Date.parse(item.start_datetime);
+    const eventEnd = Date.parse(item.end_datetime);
+    const eventConcluded =
+      item.status === "absent" ||
+      item.checklist_status === "Absent" ||
+      item.event_status === "done" ||
+      (Number.isFinite(eventEnd) && eventEnd <= Date.now()) ||
+      (item.event_status === "ongoing" &&
+        item.attendance_open === false &&
+        Number.isFinite(eventStart) &&
+        eventStart <= Date.now());
+    const didNotAttend =
+      !attended &&
+      item.status !== "excused" &&
+      !["moved", "cancelled"].includes(item.event_status) &&
+      eventConcluded;
+    const attendanceMessage = attended
+      ? "You attended this event."
+      : item.status === "excused" || item.checklist_status === "Excused"
+        ? "You were excused from this event."
+        : item.event_status === "moved"
+          ? "This event was moved."
+          : item.event_status === "cancelled"
+            ? "This event was cancelled."
+            : !item.requires_attendance
+              ? "Attendance is not required for this event."
+              : didNotAttend
+                ? "You didn't attend this event."
+                : attendanceOpen
+                  ? "Attendance has not been recorded yet."
+                  : "Attendance is not open yet.";
+    return `<article class="api-event-row student-event-todo-card">
+      <div class="student-event-details">
+        <strong>${escapeHtml(item.title)}</strong>
+        <span>${escapeHtml(item.event_type)} · ${escapeHtml(item.event_status || "pending")} · ${attendanceBadge}</span>
+        <time>${escapeHtml(formatDate(item.start_datetime))}${item.venue ? ` · ${escapeHtml(item.venue)}` : ""}</time>
+        ${item.status_note ? `<span>${escapeHtml(item.status_note)}</span>` : ""}
+        <div class="student-event-todo-actions">
+          <span class="student-event-attendance-status ${didNotAttend ? "is-absent" : attended ? "is-attended" : ""}">${attendanceMessage}</span>
+        </div>
       </div>
     </article>`;
   }
 
   let schoolCalendarEvents = [];
+  let studentAllEvents = [];
 
   function renderSchoolCalendar() {
     const eventsList = byId("schoolCalendarEvents");
     if (!eventsList) return;
     const monthValue = byId("schoolCalendarMonth")?.value;
     if (!monthValue) return;
-    const upcoming = schoolCalendarEvents
-      .filter(
-        (item) =>
-          new Date(item.end_datetime) >=
-          new Date(new Date().setHours(0, 0, 0, 0)),
-      )
-      .sort((a, b) => new Date(a.start_datetime) - new Date(b.start_datetime));
     const monthEvents = [...schoolCalendarEvents].sort(
       (a, b) => new Date(a.start_datetime) - new Date(b.start_datetime),
     );
+    renderAttendanceSummary(isStudent ? studentAllEvents : schoolCalendarEvents);
     eventsList.innerHTML = monthEvents.length
       ? monthEvents.map(eventCalendarCard).join("")
       : '<p class="school-calendar-empty">No school events scheduled for this month.</p>';
-    if (isStudent && byId("studentUpcomingEvents")) {
-      byId("studentUpcomingEvents").innerHTML = upcoming.length
-        ? upcoming.map(eventCalendarCard).join("")
-        : "No upcoming school events.";
+    if (isStudent && byId("studentEventTodos")) {
+      byId("studentEventTodos").innerHTML = studentAllEvents.length
+        ? [...studentAllEvents]
+            .sort((a, b) => new Date(a.start_datetime) - new Date(b.start_datetime))
+            .map(studentEventTodoCard)
+            .join("")
+        : "No school events are available for your to-do list.";
     }
   }
 
@@ -1717,14 +1937,25 @@ document.addEventListener("DOMContentLoaded", async () => {
       query.set("department_id", currentUser.teaching_department_id);
     }
     try {
-      const endpoint = isStudent ? "/students/me/events" : "/events";
-      const result = await api.request(`${endpoint}?${query}`);
-      schoolCalendarEvents = result.events;
+      if (isStudent) {
+        const result = await api.request("/students/me/events");
+        studentAllEvents = result.events;
+        schoolCalendarEvents = result.events.filter(
+          (item) =>
+            new Date(item.end_datetime) >= from &&
+            new Date(item.start_datetime) < to,
+        );
+      } else {
+        const result = await api.request(`/events?${query}`);
+        schoolCalendarEvents = result.events;
+      }
       renderSchoolCalendar();
       setFormMessage("schoolCalendarMessage", "", true);
     } catch (error) {
       if (byId("schoolCalendarEvents"))
         byId("schoolCalendarEvents").textContent = error.message;
+      if (isStudent && byId("studentEventTodos"))
+        byId("studentEventTodos").textContent = error.message;
       setFormMessage("schoolCalendarMessage", error.message);
     }
   }
@@ -1733,28 +1964,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     void loadSchoolCalendar();
   });
 
-  byId("schoolCalendarEvents")?.addEventListener("click", async (event) => {
-    const button = event.target.closest(".calendar-attendance-toggle");
+  byId("schoolCalendarEvents")?.addEventListener("click", (event) => {
+    const button = event.target.closest(".edit-event, .delete-event");
     if (!button || !isAdmin) return;
-    button.disabled = true;
-    const nextOpen = button.dataset.nextOpen === "true";
-    try {
-      await api.request(`/events/${button.dataset.event}`, {
-        method: "PATCH",
-        body: JSON.stringify({ attendance_open: nextOpen }),
+    const managerButton = byId("eventList")?.querySelector(
+      `.${button.classList.contains("edit-event") ? "edit-event" : "delete-event"}[data-event="${button.dataset.event}"]`,
+    );
+    if (!managerButton) {
+      setFormMessage("schoolCalendarMessage", "Open Events and refresh the event list, then try again.");
+      return;
+    }
+    showPage("event-management");
+    managerButton.click();
+    const managedCard = managerButton.closest(".managed-event-card");
+    managedCard?.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (button.classList.contains("edit-event")) {
+      managedCard?.querySelector(".event-editor")?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
       });
-      setFormMessage(
-        "schoolCalendarMessage",
-        nextOpen
-          ? "Attendance is open for this event."
-          : "Attendance is closed for new time-ins. Assigned manual time-outs remain available.",
-        true,
-      );
-      await loadSchoolCalendar();
-      await loadEvents();
-    } catch (error) {
-      setFormMessage("schoolCalendarMessage", error.message);
-      button.disabled = false;
     }
   });
 
@@ -1764,6 +1992,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         setFormMessage("rfidReaderStatusMessage", error.message);
       });
     }, 15000);
+  }
+
+  if (byId("eventAttendanceSummary") || isStudent) {
+    window.setInterval(() => {
+      void loadEvents();
+    }, 30_000);
   }
 
   async function loadRfidEventOptions() {
@@ -1913,10 +2147,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (assignment) {
         if (byId("rfidEvent"))
           byId("rfidEvent").value = String(assignment.event_id);
-        if (byId("rfidAttendanceMode")) {
-          byId("rfidAttendanceMode").value =
-            assignment.attendance_mode || "auto";
-        }
       }
       setFormMessage("rfidEventMessage", "", true);
     } catch (error) {
@@ -1945,7 +2175,6 @@ document.addEventListener("DOMContentLoaded", async () => {
           reader_id: readerId,
           event_id: eventId,
           attendance_date: attendanceDate,
-          attendance_mode: byId("rfidAttendanceMode").value,
         }),
       });
       setFormMessage(
@@ -2008,6 +2237,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     return new Date(`${date}T00:00:00+08:00`).toISOString();
   }
 
+  function nextDateOnly(date) {
+    const [year, month, day] = date.split("-").map(Number);
+    const next = new Date(Date.UTC(year, month - 1, day + 1));
+    return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, "0")}-${String(next.getUTCDate()).padStart(2, "0")}`;
+  }
+
+  function updateReportDateBounds() {
+    const from = byId("reportFrom");
+    const to = byId("reportTo");
+    if (!from || !to) return;
+    from.max = to.value || "";
+    to.min = from.value || "";
+  }
+
   let currentReportRows = [];
   function csvCell(value) {
     const raw = String(value ?? "");
@@ -2064,7 +2307,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           <td>${escapeHtml(record.student_no)}</td>
           <td>${escapeHtml(record.year_level)}</td>
           <td>${
-            isStaff
+            isAdmin
               ? `<select class="attendance-status" aria-label="Attendance status" data-event="${record.event_id}" data-student="${record.student_id}">
                 ${["present", "late", "absent", "excused"].map((status) => `<option value="${status}" ${record.status === status ? "selected" : ""}>${status}</option>`).join("")}
               </select>`
@@ -2089,7 +2332,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 ? escapeHtml(formatDate(record.time_out))
                 : "—"
           }</td>
-          <td>${isStaff ? `<button class="btn save-attendance" type="button" data-event="${record.event_id}" data-student="${record.student_id}">Save</button>` : "—"}</td>
+          <td>${isStaff ? `<button class="btn save-attendance" type="button" data-event="${record.event_id}" data-student="${record.student_id}" data-status="${escapeHtml(record.status)}">Save</button>` : "—"}</td>
         </tr>`,
           )
           .join("")
@@ -2100,10 +2343,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     const from = byId("reportFrom")?.value;
     const inclusiveTo = byId("reportTo")?.value;
     if (!isStaff || !from || !inclusiveTo) return;
+    if (from > inclusiveTo) {
+      currentReportRows = [];
+      setFormMessage("reportMessage", "The start date must be on or before the end date.");
+      return;
+    }
     const generateButton = byId("generateReport");
-    const dayAfter = new Date(localDateStartIso(inclusiveTo));
-    dayAfter.setUTCDate(dayAfter.getUTCDate() + 1);
-    const query = reportQuery(localDateStartIso(from), dayAfter.toISOString());
+    const query = reportQuery(
+      localDateStartIso(from),
+      localDateStartIso(nextDateOnly(inclusiveTo)),
+    );
     query.set("include_current", "true");
     setText("reportRange", `${from} to ${inclusiveTo}`);
     if (generateButton) generateButton.disabled = true;
@@ -2161,7 +2410,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!button || !isStaff) return;
     const { event: eventId, student: studentId } = button.dataset;
     const row = button.closest("tr");
-    const status = row.querySelector(".attendance-status")?.value;
+    const status = row.querySelector(".attendance-status")?.value ?? button.dataset.status;
     const remarks =
       row.querySelector(".attendance-remarks")?.value.trim() || null;
     try {
@@ -2214,9 +2463,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   async function loadStudentDashboard() {
     if (!isStudent) return;
-    const [pointsResult, eventsResult] = await Promise.allSettled([
+    const [pointsResult] = await Promise.allSettled([
       api.request("/students/me/points"),
-      api.request("/students/me/events"),
     ]);
     const errors = [];
     if (pointsResult.status === "fulfilled") {
@@ -2231,16 +2479,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       errors.push(`Points: ${pointsResult.reason.message}`);
     }
     setText("studentNumber", currentUser.student_no || "—");
-    const list = byId("studentEventList");
-    if (eventsResult.status === "fulfilled") {
-      const events = eventsResult.value.events;
-      list.innerHTML = events.length
-        ? events.map(eventCalendarCard).join("")
-        : "No school events are scheduled for your department.";
-    } else {
-      list.textContent = eventsResult.reason.message;
-      errors.push(`Events: ${eventsResult.reason.message}`);
-    }
     setText("dashboardMessage", errors.join(" · "));
   }
 
@@ -2419,6 +2657,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     byId("rfidAssignmentDate").value = dateOnly(currentMonth);
   if (byId("reportFrom")) byId("reportFrom").value = dateOnly(monthStart);
   if (byId("reportTo")) byId("reportTo").value = dateOnly(currentMonth);
+  updateReportDateBounds();
 
   await Promise.allSettled([
     loadDepartments(),
@@ -2428,7 +2667,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     loadStudentDashboard(),
     loadOverview(),
     loadStudentChoices(),
-    loadMasterlists(),
     loadTeams(),
     loadTeamAdvisers(),
     loadAdvisoryTeams(),
@@ -2499,9 +2737,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     setFormMessage("reportMessage", "Excel-compatible CSV downloaded.", true);
   });
   on("reportFrom", "change", () => {
+    if (byId("reportTo").value && byId("reportTo").value < byId("reportFrom").value) {
+      byId("reportTo").value = byId("reportFrom").value;
+    }
+    updateReportDateBounds();
     void loadAttendanceReport();
   });
   on("reportTo", "change", () => {
+    if (byId("reportFrom").value && byId("reportTo").value < byId("reportFrom").value) {
+      byId("reportFrom").value = byId("reportTo").value;
+    }
+    updateReportDateBounds();
     void loadAttendanceReport();
   });
   on("attendanceMonth", "change", () => {

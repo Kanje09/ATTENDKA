@@ -10,7 +10,7 @@ import { errorHandler } from "../middleware/errorHandler.js";
 const app = express();
 
 app.disable("x-powered-by");
-app.use(express.json({ limit: "32kb" }));
+app.use(express.json({ limit: "512kb" }));
 app.use((req, res, next) => {
     const origin = req.header("origin");
     const allowedOrigins = [

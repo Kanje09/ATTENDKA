@@ -30,7 +30,7 @@ authRouter.post(
             typeof last_name !== "string" || !last_name.trim() || last_name.length > 80 ||
             typeof student_no !== "string" || !student_no.trim() || student_no.length > 30 ||
             !Number.isInteger(Number(department_id)) || Number(department_id) < 1 ||
-            !Number.isInteger(Number(year_level)) || Number(year_level) < 1 || Number(year_level) > 10 ||
+            !Number.isInteger(Number(year_level)) || Number(year_level) < 1 || Number(year_level) > 5 ||
             (email !== undefined && email !== null && (typeof email !== "string" || email.length > 150)) ||
             (section !== undefined && section !== null && (typeof section !== "string" || section.length > 20)) ||
             (middle_name !== undefined && middle_name !== null && (typeof middle_name !== "string" || middle_name.length > 80))

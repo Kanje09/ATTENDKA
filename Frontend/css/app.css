@@ -645,6 +645,22 @@ body.sb-collapsed .nav-item { justify-content: center; padding: 12px 0; }
   flex-wrap:wrap;
   align-items:center
 }
+#reports .header-actions input[type="date"] {
+  min-width: 150px;
+  min-height: 40px;
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: 9px;
+  padding: 8px 10px;
+  background: rgba(10,30,40,.75);
+  color: #fff;
+  color-scheme: dark;
+  font: inherit;
+  cursor: pointer;
+}
+#reports .header-actions input[type="date"]:focus-visible {
+  outline: 2px solid #8b7dff;
+  outline-offset: 2px;
+}
 #reports .btn,
 #reports .select{
   padding:8px 16px;
@@ -807,13 +823,93 @@ body.sb-collapsed .nav-item { justify-content: center; padding: 12px 0; }
   font: inherit;
 }
 #team-adviser .table-wrap { overflow-x: auto; }
+#team-adviser .team-adviser-toolbar {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.8fr) minmax(240px, 1.2fr);
+  align-items: end;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+#team-adviser .team-adviser-team-field {
+  display: grid;
+  gap: 7px;
+  color: #b7c5da;
+  font-size: 12px;
+  font-weight: 700;
+}
+#team-adviser #advisoryTeam {
+  appearance: none;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 42px 10px 13px;
+  border: 1px solid rgba(139, 125, 255, .42);
+  border-radius: 10px;
+  background-color: #10243b;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b7c5da' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 13px center;
+  color: #f1f5f9;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
+}
+#team-adviser #advisoryTeam:hover { border-color: rgba(139, 125, 255, .8); }
+#team-adviser #advisoryTeam:focus-visible {
+  outline: none;
+  border-color: #a78bfa;
+  box-shadow: 0 0 0 3px rgba(139, 125, 255, .2);
+}
+#team-adviser #advisoryTeam option { background: #10243b; color: #f1f5f9; }
+#team-adviser #advisoryTeamSearch {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 13px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 10px;
+  background: rgba(0,0,0,.2);
+  color: #e2e8f0;
+  font: inherit;
+}
+#team-adviser #advisoryTeamSearch:focus-visible {
+  outline: 2px solid #8b7dff;
+  outline-offset: 1px;
+}
 #team-adviser table { width: 100%; min-width: 620px; border-collapse: collapse; font-size: 13px; }
 #team-adviser th, #team-adviser td {
   padding: 9px 8px;
   text-align: left;
   border-bottom: 1px solid rgba(255,255,255,.1);
 }
+@media (max-width: 640px) {
+  #team-adviser .team-adviser-toolbar { grid-template-columns: minmax(0, 1fr); }
+}
 #schoolCalendarControls .header-actions { margin-bottom: 14px; }
+#schoolCalendarControls .school-calendar-events {
+  grid-template-columns: minmax(0, 1fr);
+}
+#schoolCalendarControls .school-event-card {
+  width: 100%;
+  min-height: 100px;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  padding: 14px 20px;
+}
+#schoolCalendarControls .school-event-card .student-event-details {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 20px;
+}
+#schoolCalendarControls .school-event-card .student-event-details > strong,
+#schoolCalendarControls .school-event-card .student-event-details > span:last-child {
+  grid-column: 1;
+}
+#schoolCalendarControls .school-event-card .student-event-details > time {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  text-align: right;
+}
 #schoolCalendarMonth {
   min-width: 150px;
   border: 1px solid rgba(255,255,255,.2);
@@ -882,12 +978,10 @@ body.sb-collapsed .nav-item { justify-content: center; padding: 12px 0; }
   font-size: 12px;
 }
 .student-photo-preview img { width: 100%; height: 100%; object-fit: cover; }
-#masterlists .api-admin-grid { margin-top: 14px; }
-#masterlists .api-admin-grid { grid-template-columns: minmax(260px, .8fr) minmax(500px, 1.8fr); }
-#masterlists .api-user-list { max-height: 600px; overflow: auto; }
-.masterlist-filters { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 8px; margin: 10px 0; }
-.masterlist-filters input,
-.masterlist-filters select,
+
+.team-member-filters { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 8px; margin: 10px 0; }
+.team-member-filters input,
+.team-member-filters select,
 #student-directory .students-bar input,
 #student-directory .students-bar select {
   min-width: 0;
@@ -898,16 +992,26 @@ body.sb-collapsed .nav-item { justify-content: center; padding: 12px 0; }
   color: #e2e8f0;
   font: inherit;
 }
-.masterlist-select-all { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 8px; padding: 10px; background: #10243b; color: #e2e8f0; }
-.masterlist-select-all input { width: 18px; height: 18px; accent-color: #8b7dff; }
+.student-select-all-row { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 8px; padding: 10px; background: #10243b; color: #e2e8f0; }
+.student-select-all-row input { width: 18px; height: 18px; accent-color: #8b7dff; }
 .student-choice-group { margin-top: 8px; }
 .student-choice-group h4 { position: sticky; top: 40px; margin: 0; padding: 7px 10px; color: #b7aaff; background: #122840; font-size: 12px; }
-#masterlists .student-choice-row { padding-left: 20px; }
-#masterlists .api-admin-grid > section { min-width: 0; }
-#masterlists .api-form { width: 100%; }
-#masterlists .api-form > select { max-width: 100%; }
+#teams .student-choice-row { padding-left: 20px; }
+#teams .api-admin-grid > section { min-width: 0; }
+#teams .api-form { width: 100%; }
+#teams .api-form > select { max-width: 100%; }
 #event-management .api-admin-grid { grid-template-columns: minmax(280px, .8fr) minmax(480px, 1.6fr); }
 #event-management .calendar-events { max-width: none; margin: 0; }
+#event-management #createEventPanel { grid-column: 1 / -1; }
+#eventForm.event-creation-form {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: end;
+}
+#eventForm .event-field { display: grid; min-width: 0; gap: 9px; }
+#eventForm .event-time-fields { grid-column: span 2; }
+#eventForm .event-time-fields > div { display: grid; min-width: 0; gap: 9px; }
+#eventForm > .btn { align-self: end; }
+#eventForm > .api-message { grid-column: span 3; align-self: center; margin: 0; }
 #event-management .event-lifecycle,
 #event-management .event-status-note,
 #event-management .event-start,
@@ -1212,6 +1316,35 @@ body.sb-collapsed .nav-item { justify-content: center; padding: 12px 0; }
 .event-editor[hidden] { display: none; }
 .attendance-open-badge { display: inline-flex; align-items: center; margin-left: 6px; padding: 2px 7px; border-radius: 999px; background: rgba(52,211,153,.14); color: #6ee7b7 !important; font-size: 10px !important; font-weight: 700; }
 .attendance-closed-badge { display: inline-flex; align-items: center; margin-left: 6px; padding: 2px 7px; border-radius: 999px; background: rgba(148,163,184,.13); color: #cbd5e1 !important; font-size: 10px !important; font-weight: 700; }
+.student-event-todo-card { min-width: 0; }
+.student-event-todo-actions {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  margin-top: 5px;
+}
+.student-event-attendance-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 7px 11px;
+  border: 1px solid rgba(148, 163, 184, .24);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, .48);
+  color: #cbd5e1 !important;
+  font-size: 12px !important;
+  font-weight: 700;
+}
+.student-event-attendance-status.is-attended {
+  border-color: rgba(52, 211, 153, .34);
+  background: rgba(16, 185, 129, .1);
+  color: #a7f3d0 !important;
+}
+.student-event-attendance-status.is-absent {
+  border-color: rgba(248, 113, 113, .32);
+  background: rgba(248, 113, 113, .08);
+  color: #fca5a5 !important;
+}
 .save-event-status.is-saving { opacity: .8; cursor: wait; }
 .save-event-status.is-saving::before { content: ""; display: inline-block; width: 11px; height: 11px; margin-right: 7px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; vertical-align: -2px; animation: event-save-spin .65s linear infinite; }
 @keyframes event-save-spin { to { transform: rotate(360deg); } }
@@ -1344,6 +1477,343 @@ body.sb-collapsed .nav-item { justify-content: center; padding: 12px 0; }
   .search { width: 39vw; }
   .user-info { max-width: 38vw; }
   .content { padding-left: 7px; padding-right: 7px; }
+}
+
+.content,
+.page,
+.panel,
+.api-admin-grid > section {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.table-wrap {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-wrap table {
+  width: 100%;
+}
+
+#event-management {
+  width: 100%;
+}
+
+#event-management .api-admin-grid {
+  grid-template-columns: minmax(280px, .75fr) minmax(0, 1.25fr);
+}
+
+#event-management .school-calendar-events {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+}
+
+.school-event-card {
+  min-height: 106px;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  padding: 14px 18px;
+}
+
+.school-event-card .student-event-details {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 18px;
+}
+
+.school-event-card .student-event-details > strong,
+.school-event-card .student-event-details > span:last-child {
+  grid-column: 1;
+}
+
+.school-event-card .student-event-details > time {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  text-align: right;
+}
+
+.school-event-card .calendar-event-actions {
+  grid-column: 1 / -1;
+}
+
+.attendance-summary-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.attendance-summary-indicator small {
+  color: #94a3b8;
+}
+
+.department-student-tables,
+.team-roster-tables {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.department-student-group,
+.team-roster-card {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 12px;
+  background: rgba(255,255,255,.025);
+}
+
+.department-student-heading,
+.team-roster-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.department-student-heading h3,
+.team-roster-title h3 {
+  color: #f1f5f9;
+  font-size: 15px;
+}
+
+.department-student-heading > span,
+.team-roster-title > span,
+.team-roster-title small {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.department-advisor {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 7px;
+  color: #cbd5e1;
+  font-size: 12px;
+}
+
+.department-advisor-editor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.department-advisor-select {
+  min-width: 180px;
+  padding: 7px 9px;
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 7px;
+  background: #10243b;
+  color: #e2e8f0;
+  font: inherit;
+}
+
+.department-student-group table,
+.team-roster-card table {
+  min-width: 560px;
+  border-collapse: collapse;
+}
+
+.department-student-group th,
+.department-student-group td,
+.team-roster-card th,
+.team-roster-card td {
+  padding: 9px 10px;
+  border-bottom: 1px solid rgba(255,255,255,.1);
+  text-align: left;
+}
+
+.department-student-row {
+  cursor: pointer;
+}
+
+.department-student-row:hover {
+  background: rgba(255,255,255,.04);
+}
+
+.department-student-select {
+  width: 16px;
+  height: 16px;
+  accent-color: #8b7dff;
+}
+
+.team-roster-heading {
+  justify-content: flex-start;
+}
+
+.team-logo {
+  width: 54px;
+  height: 54px;
+  flex: 0 0 auto;
+  object-fit: cover;
+  border-radius: 12px;
+  background: rgba(255,255,255,.08);
+}
+
+.team-logo-empty {
+  display: grid;
+  place-items: center;
+  color: #94a3b8;
+  font-size: 10px;
+}
+
+.team-roster-title {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.team-roster-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.team-roster-actions .delete-team {
+  border-color: rgba(248,113,113,.35);
+  color: #fecaca;
+}
+
+.team-logo-preview {
+  display: grid;
+  width: 112px;
+  height: 112px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px dashed rgba(255,255,255,.3);
+  border-radius: 12px;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.team-logo-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#student-directory .students-bar {
+  align-items: center;
+}
+
+#student-directory .students-bar select {
+  flex: 0 1 200px;
+}
+
+#studentEditPanel {
+  margin-top: 16px;
+}
+
+@media (max-width: 768px) {
+  .main {
+    min-width: 0;
+    width: calc(100% - 68px);
+  }
+
+  .sidebar {
+    flex: 0 0 auto;
+  }
+
+  body:not(.sb-collapsed) .sidebar {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 20;
+    width: min(272px, calc(100vw - 20px));
+    height: calc(100dvh - 20px);
+    margin: 0;
+  }
+
+  body:not(.sb-collapsed) .main {
+    width: 100%;
+  }
+
+  .content {
+    overflow-x: hidden;
+  }
+
+  #event-management .api-admin-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #event-management #createEventPanel { grid-column: 1; }
+  #eventForm.event-creation-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #eventForm .event-time-fields { grid-column: 1 / -1; }
+  #eventForm > .api-message { grid-column: 1 / -1; }
+
+  .school-event-card .student-event-details {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .school-event-card .student-event-details > time {
+    grid-column: 1;
+    grid-row: auto;
+    text-align: left;
+  }
+
+  .team-roster-heading {
+    flex-wrap: wrap;
+  }
+
+  .team-roster-actions {
+    width: 100%;
+    padding-left: 66px;
+  }
+}
+
+@media (max-width: 520px) {
+  .main {
+    width: calc(100% - 62px);
+  }
+
+  .page-header,
+  .header-actions,
+  .students-bar {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .department-student-group,
+  .team-roster-card {
+    padding: 10px;
+  }
+
+  .department-student-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .department-advisor-editor {
+    width: 100%;
+  }
+
+  .department-advisor-select {
+    width: 100%;
+  }
+
+  .team-roster-actions {
+    padding-left: 0;
+  }
+
+  .attendance-summary-indicator {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  body:not(.sb-collapsed) .sidebar {
+    width: min(272px, calc(100vw - 12px));
+    top: 6px;
+    left: 6px;
+  }
 }
 
 .calendar-card {

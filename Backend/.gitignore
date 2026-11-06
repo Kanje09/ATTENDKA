@@ -1,6 +1,11 @@
 node_modules/
 
 database
+!database/
+database/*
+!database/migrations/
+database/migrations/*
+!database/migrations/010_department_advisors_and_team_logos.sql
 
 .env
 dist/

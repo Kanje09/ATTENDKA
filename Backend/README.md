@@ -10,7 +10,7 @@ Postman or HTML/CSS/JS frontend ── HTTP API + bearer token ──┐
 ESP32 RFID reader ─────── HTTP API + reader key ─────┘
 ```
 
-- **PostgreSQL** stores accounts, student and teacher profiles, departments, events, RFID readers and cards, attendance, points, masterlists, and teams.
+- **PostgreSQL** stores accounts, student and teacher profiles, department advisors, events, RFID readers and cards, attendance, points, and teams.
 - **The backend** is a Node.js/TypeScript application using Express and `pg`. It validates requests, checks permissions, runs database queries, and returns JSON.
 - **Postman** is useful for manually testing the API. The static frontend can call the same API from a browser.
 - **The ESP32** reads a card UID and sends it to the scan endpoint. It authenticates as a registered RFID reader, not as a user.
@@ -46,14 +46,17 @@ If the database health check fails, verify PostgreSQL is running and the existin
 6. `database/migrations/007_rfid_reader_heartbeat.sql` adds the reader last-seen timestamp used by online/offline detection.
 7. `database/migrations/008_live_attendance_reset.sql` adds a non-destructive live-display reset cursor.
 8. `database/migrations/009_event_attendance_open.sql` adds the explicit event attendance open/closed switch.
+9. `database/migrations/010_department_advisors_and_team_logos.sql` adds department advisors and allows team logos to be stored as image data.
 
-Migrations 004–009 are safe to rerun. Migration 006 is a repair migration for databases where the earlier assignment-table/mode migration did not finish or was skipped. Existing events become `pending`; admins can use **Open attendance now** to activate an event early or set its status to `ongoing`.
+Migrations 004–010 are safe to rerun. Migration 006 is a repair migration for databases where the earlier assignment-table/mode migration did not finish or was skipped. Existing events become `pending`; admins can use **Time-In** to open attendance early or set the event status to `ongoing`. The backend automatically closes attendance after the scheduled end time; admins can also use **Time-Out** manually.
 
 Apply migration 007 to add `rfid_readers.last_seen_at`. The reader list remains compatible with databases before migration 007 (readers will appear offline), but authenticated heartbeats and recording last-seen scan times require the migration.
 
 Apply migration 008 to enable **Reset live display**. It hides prior check-ins from the live screen without deleting the underlying attendance records; new check-ins continue to appear.
 
 Apply migration 009 before using event attendance open/close controls or RFID scans. The open flag is separate from event lifecycle status, allowing an admin to close new time-ins while retaining the event and allowing assigned manual time-outs.
+
+Apply migration 010 before loading the department advisor fields or saving team logos. Team logos are resized in the browser and stored in PostgreSQL as image data; the frontend no longer depends on local-only logo storage.
 
 The `.env` file contains private database credentials and the token-signing secret. Do not share it or commit it to Git.
 
@@ -108,7 +111,7 @@ Student registration JSON example:
 }
 ```
 
-The `department_id` must refer to a department that already exists. Admins and teachers are created by an administrator, not by student self-registration.
+The `department_id` must refer to a department that already exists. Student year levels must be between 1 and 5. Admins and teachers are created by an administrator, not by student self-registration.
 
 ### Events and departments
 
@@ -134,6 +137,8 @@ Event types: `academic`, `seminar`, `sports`, `intramurals`, `meeting`, `holiday
 | `DELETE` | `/api/admin/readers/:readerId` | Admin | Remove a reader and its event assignments while keeping attendance logs |
 | `GET` | `/api/admin/cards` | Admin | List assigned RFID cards |
 | `PATCH` | `/api/admin/cards/:cardId` | Admin | Change the student assignment or unassign/deactivate a card |
+| `PUT` | `/api/admin/students/:studentId` | Admin | Edit a student's profile or transfer departments |
+| `DELETE` | `/api/admin/students/:studentId` | Admin | Permanently remove a student and related attendance, points, checklist, team, masterlist, and RFID records |
 | `GET` | `/api/students/me/points` | Student/team leader | View own points total |
 | `GET` | `/api/students/me/events` | Student/team leader | View own event checklist |
 | `PUT` | `/api/students/me/events/:eventId/checklist` | Student/team leader | Update own personal event checklist |
@@ -179,17 +184,18 @@ The student and teacher school calendars are read-only event views. The student 
 
 Possible scan `result` values include `accepted`, `time_out`, `duplicate`, `no_event`, `unknown_card`, `inactive_card`, `reader_paused`, and `bad_device`. Administrators can pause or resume a reader from **RFID devices** in the dashboard; pausing prevents the ESP32 scans from being recorded until resumed.
 
-### Masterlists and teams
+### Department tables and teams
 
 | Method | Route | Access | Purpose |
 | --- | --- | --- | --- |
-| `GET` | `/api/masterlists` | Admin/teacher | List masterlists; teachers only see their department |
-| `POST` | `/api/masterlists` | Admin | Create a masterlist for a school year and semester |
-| `GET` | `/api/masterlists/:masterlistId/students` | Admin/teacher | View a masterlist roster |
-| `GET` | `/api/admin/masterlists/:masterlistId/candidates` | Admin | List department students and indicate existing roster members |
+| `GET` | `/api/departments` | Public | List active departments and assigned advisor |
+| `PUT` | `/api/admin/departments/:departmentId/advisor` | Admin | Set or clear a department advisor |
 | `GET` | `/api/teams` | Admin/teacher/team leader | List teams; leaders only see their own team(s) |
+| `GET` | `/api/teams/:teamId/roster` | Admin/assigned teacher | View a team's student roster |
 | `GET` | `/api/teams/:teamId/attendance` | Admin/teacher/team leader | View intramurals attendance |
 | `GET` | `/api/teams/:teamId/advisers` | Admin/teacher/team leader | View team advisers |
+
+The admin UI displays every department's students in its own table; it no longer offers masterlist creation. Existing masterlist endpoints and data are retained for compatibility, but team assignment now selects students directly from a department.
 
 Existing `team_leader` accounts can still view teams where their membership is marked as leader for compatibility. New team assignment in the admin UI does not promote student accounts; teams use teacher advisers instead.
 
@@ -210,14 +216,14 @@ Every `/api/admin/...` route requires an admin bearer token.
 | `GET` | `/api/admin/attendance/logs` | Search raw scan logs |
 | `PATCH` | `/api/admin/attendance/:attendanceId` | Correct attendance status, time-out, or remarks |
 | `POST` | `/api/admin/points` | Add or deduct points with a reason |
-| `POST` | `/api/admin/masterlists` | Create a masterlist |
-| `POST` | `/api/admin/masterlists/:masterlistId/students` | Add students to a masterlist |
 | `POST` | `/api/admin/teams` | Create a team |
+| `PATCH` | `/api/admin/teams/:teamId` | Update a team's name, school year, or logo |
+| `DELETE` | `/api/admin/teams/:teamId` | Delete a team and its member/adviser assignments |
 | `POST` | `/api/admin/teams/:teamId/members` | Add one student to a team |
-| `POST` | `/api/admin/teams/:teamId/members/bulk` | Add selected students from a masterlist to a team |
-| `POST` | `/api/admin/teams/:teamId/advisers` | Assign a teacher as team adviser |
+| `POST` | `/api/admin/teams/:teamId/members/bulk` | Add selected student IDs directly to a team |
+| `POST` | `/api/admin/teams/:teamId/advisers` | Replace or clear the team adviser |
 
-When a new reader is created, the API returns its `device_key` once. Keep the key secret. To revoke a lost key, deactivate the reader and create a replacement. Admins can select department students into masterlists, bulk-assign selected roster students to teams, and assign a teacher as team adviser. Team membership no longer promotes students to the `team_leader` role.
+When a new reader is created, the API returns its `device_key` once. Keep the key secret. To revoke a lost key, deactivate the reader and create a replacement. Admins can select department students directly into teams, assign a teacher as team adviser, edit team details and logos, and remove teams. Team membership no longer promotes students to the `team_leader` role.
 
 ### RFID communication troubleshooting
 

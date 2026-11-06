@@ -10,7 +10,7 @@ function toggleLamp() {
   if (lamp) {
     lamp.setAttribute('aria-pressed', String(turnOn));
     lamp.classList.remove('pulled');
-    void lamp.offsetWidth;               // restart animation
+    void lamp.offsetWidth;     
     lamp.classList.add('pulled');
     setTimeout(() => lamp.classList.remove('pulled'), 700);
   }

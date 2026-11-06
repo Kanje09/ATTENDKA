@@ -42,10 +42,11 @@ adminRouter.get(
                     u.email, u.is_active, u.last_login, u.created_at,
                     s.student_id, s.student_no, s.department_id,
                     t.teacher_id, t.employee_no, t.department_id AS teaching_department_id,
-                    t.year_level AS teaching_year_level
+                    t.year_level AS teaching_year_level, td.code AS teaching_department_code
              FROM users u
              LEFT JOIN students s ON s.user_id = u.user_id
              LEFT JOIN teachers t ON t.user_id = u.user_id
+             LEFT JOIN departments td ON td.department_id = t.department_id
              WHERE ($1::text IS NULL OR u.role = $1)
                AND ($2::text = '' OR u.username ILIKE '%' || $2 || '%'
                     OR u.first_name ILIKE '%' || $2 || '%'
@@ -248,7 +249,7 @@ adminRouter.post(
             (role === "teacher" && (
                 typeof employeeNo !== "string" || !employeeNo.trim() || employeeNo.length > 30 ||
                 !Number.isSafeInteger(departmentId) || departmentId < 1 ||
-                (yearLevel !== null && (!Number.isSafeInteger(yearLevel) || yearLevel < 1 || yearLevel > 10))
+                (yearLevel !== null && (!Number.isSafeInteger(yearLevel) || yearLevel < 1 || yearLevel > 5))
             )) ||
             (role === "admin" && position !== undefined && position !== null && (typeof position !== "string" || position.length > 100))
         ) {
@@ -533,7 +534,7 @@ adminRouter.patch(
         if (
             !Number.isSafeInteger(teacherId) || teacherId < 1 ||
             !Number.isSafeInteger(departmentId) || departmentId < 1 ||
-            (yearLevel !== null && (!Number.isSafeInteger(yearLevel) || yearLevel < 1 || yearLevel > 10))
+            (yearLevel !== null && (!Number.isSafeInteger(yearLevel) || yearLevel < 1 || yearLevel > 5))
         ) {
             throw new HttpError(400, "teacher_department_and_optional_year_required");
         }
@@ -598,7 +599,7 @@ adminRouter.put(
             typeof last_name !== "string" || !last_name.trim() || last_name.length > 80 ||
             (email !== undefined && email !== null && (typeof email !== "string" || email.length > 150)) ||
             !Number.isSafeInteger(departmentId) || departmentId < 1 ||
-            !Number.isSafeInteger(year_level) || year_level < 1 || year_level > 10 ||
+            !Number.isSafeInteger(year_level) || year_level < 1 || year_level > 5 ||
             (section !== undefined && section !== null && (typeof section !== "string" || section.length > 30))
         ) {
             throw new HttpError(400, "invalid_student_update");
@@ -637,6 +638,57 @@ adminRouter.put(
         } catch (error) {
             await db.query("ROLLBACK").catch((rollbackError: unknown) => {
                 console.error("Failed to roll back student update:", rollbackError);
+            });
+            throw error;
+        } finally {
+            db.release();
+        }
+    }),
+);
+
+adminRouter.delete(
+    "/students/:studentId",
+    asyncHandler(async (req, res) => {
+        const studentId = Number(req.params.studentId);
+        if (!Number.isSafeInteger(studentId) || studentId < 1) {
+            throw new HttpError(400, "invalid_student_id");
+        }
+
+        const db = await pool.connect();
+        try {
+            await db.query("BEGIN");
+            const student = await db.query<{ user_id: number }>(
+                `SELECT s.user_id
+                 FROM students s
+                 JOIN users u ON u.user_id = s.user_id AND u.role IN ('student', 'team_leader')
+                 WHERE s.student_id = $1
+                 FOR UPDATE OF s, u`,
+                [studentId],
+            );
+            if (!student.rowCount) {
+                throw new HttpError(404, "student_not_found");
+            }
+            const userId = student.rows[0].user_id;
+
+            await db.query("DELETE FROM student_event_checklist WHERE student_id = $1", [studentId]);
+            await db.query("DELETE FROM attendance_points WHERE student_id = $1", [studentId]);
+            await db.query("DELETE FROM event_attendance WHERE student_id = $1", [studentId]);
+            await db.query("DELETE FROM team_members WHERE student_id = $1", [studentId]);
+            await db.query("DELETE FROM masterlist_students WHERE student_id = $1", [studentId]);
+            await db.query(
+                `DELETE FROM attendance_logs
+                 WHERE card_id IN (SELECT card_id FROM rfid_cards WHERE user_id = $1)`,
+                [userId],
+            );
+            await db.query("DELETE FROM rfid_cards WHERE user_id = $1", [userId]);
+            await db.query("DELETE FROM card_tokens WHERE user_id = $1", [userId]);
+            await db.query("DELETE FROM students WHERE student_id = $1", [studentId]);
+            await db.query("DELETE FROM users WHERE user_id = $1", [userId]);
+            await db.query("COMMIT");
+            res.json({ ok: true, deleted: true });
+        } catch (error) {
+            await db.query("ROLLBACK").catch((rollbackError: unknown) => {
+                console.error("Failed to roll back student removal:", rollbackError);
             });
             throw error;
         } finally {
@@ -865,7 +917,8 @@ adminRouter.post(
         if (
             typeof name !== "string" || !name.trim() || name.length > 100 ||
             typeof school_year !== "string" || !/^\d{4}-\d{4}$/.test(school_year) ||
-            (logo_url !== undefined && logo_url !== null && (typeof logo_url !== "string" || logo_url.length > 255))
+            (logo_url !== undefined && logo_url !== null &&
+                (typeof logo_url !== "string" || !/^data:image\/(jpeg|png|webp);base64,/.test(logo_url) || logo_url.length > 300_000))
         ) {
             throw new HttpError(400, "invalid_team");
         }
@@ -875,6 +928,72 @@ adminRouter.post(
             [name.trim(), logo_url ?? null, school_year],
         );
         res.status(201).json({ ok: true, team: result.rows[0] });
+    }),
+);
+
+adminRouter.patch(
+    "/teams/:teamId",
+    asyncHandler(async (req, res) => {
+        const teamId = Number(req.params.teamId);
+        const { name, school_year, logo_url } = req.body ?? {};
+        if (
+            !Number.isSafeInteger(teamId) || teamId < 1 ||
+            (name !== undefined && (typeof name !== "string" || !name.trim() || name.length > 100)) ||
+            (school_year !== undefined && (typeof school_year !== "string" || !/^\d{4}-\d{4}$/.test(school_year))) ||
+            (logo_url !== undefined && logo_url !== null &&
+                (typeof logo_url !== "string" || !/^data:image\/(jpeg|png|webp);base64,/.test(logo_url) || logo_url.length > 300_000))
+        ) {
+            throw new HttpError(400, "invalid_team_update");
+        }
+        const changes = [
+            ...(name !== undefined ? [["name", name.trim()] as const] : []),
+            ...(school_year !== undefined ? [["school_year", school_year] as const] : []),
+            ...(logo_url !== undefined ? [["logo_url", logo_url] as const] : []),
+        ];
+        if (!changes.length) {
+            throw new HttpError(400, "no_team_fields_to_update");
+        }
+        const values = changes.map(([, value]) => value);
+        const assignments = changes.map(([field], index) => `${field} = $${index + 1}`).join(", ");
+        values.push(teamId);
+        const result = await pool.query(
+            `UPDATE teams SET ${assignments} WHERE team_id = $${values.length} RETURNING *`,
+            values,
+        );
+        if (!result.rowCount) {
+            throw new HttpError(404, "team_not_found");
+        }
+        res.json({ ok: true, team: result.rows[0] });
+    }),
+);
+
+adminRouter.delete(
+    "/teams/:teamId",
+    asyncHandler(async (req, res) => {
+        const teamId = Number(req.params.teamId);
+        if (!Number.isSafeInteger(teamId) || teamId < 1) {
+            throw new HttpError(400, "invalid_team_id");
+        }
+        const db = await pool.connect();
+        try {
+            await db.query("BEGIN");
+            const team = await db.query("SELECT team_id FROM teams WHERE team_id = $1 FOR UPDATE", [teamId]);
+            if (!team.rowCount) {
+                throw new HttpError(404, "team_not_found");
+            }
+            await db.query("DELETE FROM team_advisers WHERE team_id = $1", [teamId]);
+            await db.query("DELETE FROM team_members WHERE team_id = $1", [teamId]);
+            await db.query("DELETE FROM teams WHERE team_id = $1", [teamId]);
+            await db.query("COMMIT");
+            res.json({ ok: true, deleted: true });
+        } catch (error) {
+            await db.query("ROLLBACK").catch((rollbackError: unknown) => {
+                console.error("Failed to roll back team deletion:", rollbackError);
+            });
+            throw error;
+        } finally {
+            db.release();
+        }
     }),
 );
 
@@ -903,11 +1022,9 @@ adminRouter.post(
     "/teams/:teamId/members/bulk",
     asyncHandler(async (req, res) => {
         const teamId = Number(req.params.teamId);
-        const masterlistId = Number(req.body?.masterlist_id);
         const studentIds: unknown = req.body?.student_ids;
         if (
             !Number.isSafeInteger(teamId) || teamId < 1 ||
-            !Number.isSafeInteger(masterlistId) || masterlistId < 1 ||
             !Array.isArray(studentIds) || studentIds.length < 1 || studentIds.length > 1000 ||
             studentIds.some((id) => !Number.isSafeInteger(id) || (id as number) < 1)
         ) {
@@ -917,27 +1034,28 @@ adminRouter.post(
         const [team, valid] = await Promise.all([
             pool.query("SELECT 1 FROM teams WHERE team_id = $1", [teamId]),
             pool.query<{ count: number }>(
-                `SELECT count(DISTINCT student_id)::int AS count
-                 FROM masterlist_students
-                 WHERE masterlist_id = $1 AND student_id = ANY($2::int[])`,
-                [masterlistId, uniqueStudentIds],
+                `SELECT count(DISTINCT s.student_id)::int AS count
+                 FROM students s
+                 JOIN users u ON u.user_id = s.user_id AND u.is_active = TRUE
+                 WHERE s.student_id = ANY($1::int[])`,
+                [uniqueStudentIds],
             ),
         ]);
         if (!team.rowCount) {
             throw new HttpError(404, "team_not_found");
         }
         if (valid.rows[0].count !== uniqueStudentIds.length) {
-            throw new HttpError(400, "students_must_belong_to_selected_masterlist");
+            throw new HttpError(400, "selected_students_must_be_active");
         }
         const result = await pool.query(
             `INSERT INTO team_members (team_id, student_id)
              SELECT $1, selected.student_id
-             FROM unnest($3::int[]) AS selected(student_id)
-            JOIN masterlist_students ms
-              ON ms.masterlist_id = $2 AND ms.student_id = selected.student_id
+            FROM unnest($2::int[]) AS selected(student_id)
+            JOIN students s ON s.student_id = selected.student_id
+            JOIN users u ON u.user_id = s.user_id AND u.is_active = TRUE
             ON CONFLICT (team_id, student_id) DO NOTHING
              RETURNING student_id`,
-            [teamId, masterlistId, uniqueStudentIds],
+            [teamId, uniqueStudentIds],
         );
         res.status(201).json({ ok: true, added: result.rowCount });
     }),
@@ -947,16 +1065,44 @@ adminRouter.post(
     "/teams/:teamId/advisers",
     asyncHandler(async (req, res) => {
         const teamId = Number(req.params.teamId);
-        const teacherId = Number(req.body?.teacher_id);
-        if (!Number.isSafeInteger(teamId) || teamId < 1 || !Number.isSafeInteger(teacherId) || teacherId < 1) {
-            throw new HttpError(400, "team_id_and_teacher_id_required");
+        const teacherId = req.body?.teacher_id === null ? null : Number(req.body?.teacher_id);
+        if (
+            !Number.isSafeInteger(teamId) || teamId < 1 ||
+            (teacherId !== null && (!Number.isSafeInteger(teacherId) || teacherId < 1))
+        ) {
+            throw new HttpError(400, "team_id_and_valid_teacher_id_required");
         }
-        const result = await pool.query(
-            `INSERT INTO team_advisers (team_id, teacher_id)
-             VALUES ($1, $2) RETURNING *`,
-            [teamId, teacherId],
-        );
-        res.status(201).json({ ok: true, adviser: result.rows[0] });
+        const db = await pool.connect();
+        try {
+            await db.query("BEGIN");
+            const team = await db.query("SELECT team_id FROM teams WHERE team_id = $1 FOR UPDATE", [teamId]);
+            if (!team.rowCount) {
+                throw new HttpError(404, "team_not_found");
+            }
+            if (teacherId !== null) {
+                const teacher = await db.query("SELECT 1 FROM teachers WHERE teacher_id = $1", [teacherId]);
+                if (!teacher.rowCount) {
+                    throw new HttpError(404, "teacher_not_found");
+                }
+            }
+            await db.query("DELETE FROM team_advisers WHERE team_id = $1", [teamId]);
+            const adviser = teacherId === null
+                ? null
+                : await db.query(
+                    `INSERT INTO team_advisers (team_id, teacher_id)
+                     VALUES ($1, $2) RETURNING *`,
+                    [teamId, teacherId],
+                );
+            await db.query("COMMIT");
+            res.json({ ok: true, adviser: adviser?.rows[0] ?? null });
+        } catch (error) {
+            await db.query("ROLLBACK").catch((rollbackError: unknown) => {
+                console.error("Failed to roll back team adviser update:", rollbackError);
+            });
+            throw error;
+        } finally {
+            db.release();
+        }
     }),
 );
 

@@ -7,9 +7,9 @@
   <title>Attendka??</title>
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap"
-    rel="stylesheet"> 
+    rel="stylesheet">
   <link rel="stylesheet" href="../css/app.css">
-  <link rel="icon" type="image/png" href="images/logo.png">
+  <link rel="icon" type="image/png" href="../images/logo.png">
 </head>
 
 <body>
@@ -22,7 +22,7 @@
       </svg></button>
 
     <div class="brand">
-      <img src="images/logo.png" alt="PTCI Logo" class="brand-img" onerror="this.style.display='none'">
+      <img src="../images/logo.png" alt="PTCI Logo" class="brand-img" onerror="this.style.display='none'">
       <div class="brand-text">
         <h1>ATTENDKA?</h1>
         <span>Attendance Management</span>
@@ -83,10 +83,12 @@
           <path d="M3 20v-1a6 6 0 0 1 12 0v1M17 8h4M17 12h4M17 16h4" />
         </svg><span class="label">Student Directory</span>
       </button>
-      <button type="button" class="nav-item" data-page="masterlists" id="masterlistsNav" title="Masterlists">
+      <button type="button" class="nav-item" data-page="teams" id="teamsNav" title="Teams">
         <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-          <path d="M4 4h16v16H4zM8 8h8M8 12h8M8 16h5" />
-        </svg><span class="label">Masterlists</span>
+          <circle cx="8" cy="8" r="3" />
+          <circle cx="17" cy="9" r="2.5" />
+          <path d="M2.5 20v-1a5.5 5.5 0 0 1 11 0v1M15 15a4.5 4.5 0 0 1 6.5 4v1" />
+        </svg><span class="label">Teams</span>
       </button>
       <button type="button" class="nav-item" data-page="team-adviser" id="teamAdviserNav" title="Team adviser">
         <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
@@ -109,10 +111,10 @@
           <path d="M3 10h18M8 3v4M16 3v4" />
         </svg><span class="label">School calendar</span>
       </button>
-      <button type="button" class="nav-item" data-page="student-events" id="studentEventsNav" title="Upcoming events">
+      <button type="button" class="nav-item" data-page="student-todo-list" id="studentTodoNav" title="Event to-do list">
         <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
           <path d="M5 4h14v17H5zM8 2v4M16 2v4M8 10h8M8 14h5" />
-        </svg><span class="label">My Events</span>
+        </svg><span class="label">Event To-do List</span>
       </button>
 
       <div class="nav-gap"></div>
@@ -178,6 +180,8 @@
               <div>
                 <h2>Events</h2>
                 <div class="sub">Create events and manage event lifecycle and venue.</div>
+                <div id="eventAttendanceSummary" class="attendance-summary-indicator" role="status">Attendance Closed
+                </div>
               </div>
             </div>
             <div class="api-admin-grid" id="eventManagementContent"></div>
@@ -186,7 +190,7 @@
             <div class="page-header">
               <div>
                 <h2>RFID devices</h2>
-                <div class="sub">Register readers, assign student cards, and choose check-in/out mode.</div>
+                <div class="sub">Register readers, assign student cards, and monitor device status.</div>
               </div>
             </div>
             <div class="api-admin-grid" id="rfidManagementContent"></div>
@@ -224,6 +228,7 @@
                   <option value="2">Year 2</option>
                   <option value="3">Year 3</option>
                   <option value="4">Year 4</option>
+                  <option value="5">Year 5</option>
                 </select>
                 <button type="button" class="btn primary" id="saveTeacherAssignment">Save assignment</button>
                 <p class="api-message" id="teacherAssignmentMessage" role="status"></p>
@@ -239,15 +244,17 @@
             </div>
             <div class="api-admin-grid" id="studentPhotosContent"></div>
           </div>
-          <div class="page" id="student-events">
+          <div class="page" id="student-todo-list">
             <div class="page-header">
               <div>
-                <h2>Upcoming events</h2>
-                <div class="sub">View upcoming school events and their latest status.</div>
+                <h2>Event To-do List</h2>
+                <div class="sub">See your attendance status for each school event. Attendance is recorded by RFID.</div>
+                <div id="studentAttendanceSummary" class="attendance-summary-indicator" role="status">Attendance Closed
+                </div>
               </div>
             </div>
             <section class="panel">
-              <div class="api-user-list" id="studentUpcomingEvents">Loading upcoming events…</div>
+              <div class="api-user-list" id="studentEventTodos">Loading events…</div>
             </section>
           </div>
           <div class="page" id="student-directory">
@@ -266,26 +273,14 @@
                 <select id="directoryYear">
                   <option value="">All year levels</option>
                 </select>
+                <button class="btn" type="button" id="toggleStudentEdit" hidden>Edit</button>
+                <button class="btn primary" type="button" id="editSelectedStudent" hidden disabled>Edit selected
+                  student</button>
+                <button class="btn" type="button" id="removeSelectedStudent" hidden disabled>Remove selected
+                  student</button>
               </div>
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Student</th>
-                      <th>Student ID</th>
-                      <th>Department</th>
-                      <th>Year</th>
-                      <th>Section</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody id="directoryRows">
-                    <tr>
-                      <td colspan="6" class="empty">Loading students…</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              <div id="directoryDepartments" class="department-student-tables">Loading department student tables…</div>
+              <p class="api-message" id="directoryMessage" role="status"></p>
             </section>
             <section class="panel" id="studentEditPanel" hidden>
               <h3>Edit student details</h3>
@@ -312,7 +307,7 @@
                 </div>
                 <div class="api-form-row">
                   <div><label for="editStudentYear">Year level</label><input id="editStudentYear" type="number" min="1"
-                      max="10" required></div>
+                      max="5" required></div>
                   <div><label for="editStudentSection">Section</label><input id="editStudentSection" maxlength="30">
                   </div>
                 </div>
@@ -372,6 +367,7 @@
                   <option value="2">Year 2</option>
                   <option value="3">Year 3</option>
                   <option value="4">Year 4</option>
+                  <option value="5">Year 5</option>
                 </select>
               </div>
               <div id="adminFields" hidden>
@@ -434,31 +430,41 @@
             </form>
           </section>
 
-          <section class="panel">
+          <section class="panel" id="createEventPanel">
             <div class="panel-header">
               <h3>Create attendance event</h3>
             </div>
-            <form id="eventForm" class="api-form">
-              <label for="eventTitle">Event title</label><input id="eventTitle" maxlength="200" required>
-              <label for="eventVenue">Venue</label><input id="eventVenue" maxlength="150" placeholder="Event venue">
-              <label for="eventType">Event type</label>
-              <select id="eventType" required>
-                <option value="academic">Academic</option>
-                <option value="seminar">Seminar</option>
-                <option value="sports">Sports</option>
-                <option value="intramurals">Intramurals</option>
-                <option value="meeting">Meeting</option>
-                <option value="other">Other</option>
-              </select>
-              <div class="api-form-row">
+            <form id="eventForm" class="api-form event-creation-form">
+              <div class="event-field">
+                <label for="eventTitle">Event title</label><input id="eventTitle" maxlength="200" required>
+              </div>
+              <div class="event-field">
+                <label for="eventVenue">Venue</label><input id="eventVenue" maxlength="150" placeholder="Event venue">
+              </div>
+              <div class="event-field">
+                <label for="eventType">Event type</label>
+                <select id="eventType" required>
+                  <option value="academic">Academic</option>
+                  <option value="seminar">Seminar</option>
+                  <option value="sports">Sports</option>
+                  <option value="intramurals">Intramurals</option>
+                  <option value="meeting">Meeting</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div class="api-form-row event-time-fields">
                 <div><label for="eventStart">Start</label><input id="eventStart" type="datetime-local" required></div>
                 <div><label for="eventEnd">End</label><input id="eventEnd" type="datetime-local" required></div>
               </div>
-              <label for="eventDepartment">Department (blank means school-wide)</label><select id="eventDepartment">
-                <option value="">School-wide</option>
-              </select>
-              <label for="eventPoints">Attendance points</label><input id="eventPoints" type="number" min="0" step="1"
-                value="0">
+              <div class="event-field">
+                <label for="eventDepartment">Department (blank means school-wide)</label><select id="eventDepartment">
+                  <option value="">School-wide</option>
+                </select>
+              </div>
+              <div class="event-field">
+                <label for="eventPoints">Attendance points</label><input id="eventPoints" type="number" min="0" step="1"
+                  value="0">
+              </div>
               <button class="btn primary" type="submit">Create event</button>
               <p class="api-message" id="eventMessage" role="status"></p>
             </form>
@@ -578,56 +584,14 @@
         </div>
       </div>
 
-      <div class="page" id="masterlists">
+      <div class="page" id="teams">
         <div class="page-header">
           <div>
-            <h2>Department masterlists</h2>
-            <div class="sub">Build department rosters and assign selected students to teams.</div>
+            <h2>Teams</h2>
+            <div class="sub">Create teams, assign members and advisers, and manage each team roster.</div>
           </div>
         </div>
         <div class="api-admin-grid">
-          <section class="panel">
-            <div class="panel-header">
-              <h3>Create masterlist</h3>
-            </div>
-            <form id="masterlistForm" class="api-form">
-              <label for="masterlistDepartment">Department</label><select id="masterlistDepartment" required>
-                <option value="">Select department</option>
-              </select>
-              <div class="api-form-row">
-                <div><label for="masterlistYear">School year</label><input id="masterlistYear" required
-                    pattern="[0-9]{4}-[0-9]{4}" placeholder=" 2025-2026"></div>
-                <div><label for="masterlistSemester">Semester</label><select id="masterlistSemester">
-                    <option value="1st">1st</option>
-                    <option value="2nd">2nd</option>
-                    <option value="summer">Summer</option>
-                  </select></div>
-              </div>
-              <button class="btn primary" type="submit">Create masterlist</button>
-              <button class="btn" type="button" id="updateMasterlist">Update selected masterlist</button>
-              <p class="api-message" id="masterlistMessage" role="status"></p>
-            </form>
-          </section>
-          <section class="panel">
-            <div class="panel-header">
-              <h3>Add students to masterlist</h3>
-            </div>
-            <div class="api-form">
-              <label for="masterlistSelect">Masterlist</label><select id="masterlistSelect">
-                <option value="">Select masterlist</option>
-              </select>
-              <div class="masterlist-filters">
-                <input type="search" id="masterlistCandidateSearch" placeholder="Search students in this department">
-                <select id="masterlistCandidateYear">
-                  <option value="">All year levels</option>
-                </select>
-              </div>
-              <div id="masterlistCandidates" class="api-user-list">Choose a masterlist to load students.</div>
-              <button type="button" class="btn primary" id="saveMasterlistStudents">Save selected students</button>
-              <button type="button" class="btn" id="removeMasterlistStudents">Remove selected students</button>
-              <p class="api-message" id="masterlistStudentsMessage" role="status"></p>
-            </div>
-          </section>
           <section class="panel">
             <div class="panel-header">
               <h3>Create team</h3>
@@ -636,6 +600,9 @@
               <label for="teamName">Team name</label><input id="teamName" maxlength="100" required>
               <label for="teamSchoolYear">School year</label><input id="teamSchoolYear" pattern="[0-9]{4}-[0-9]{4}"
                 placeholder="2025-2026" required>
+              <label for="teamLogoFile">Team logo</label><input id="teamLogoFile" type="file"
+                accept="image/png,image/jpeg,image/webp">
+              <div class="team-logo-preview" id="teamLogoPreview">No logo selected</div>
               <button class="btn primary" type="submit">Create team</button>
               <p class="api-message" id="teamMessage" role="status"></p>
             </form>
@@ -648,16 +615,16 @@
               <label for="teamSelect">Team</label><select id="teamSelect">
                 <option value="">Select team</option>
               </select>
-              <label for="teamMasterlistSelect">Source masterlist</label><select id="teamMasterlistSelect">
-                <option value="">Select masterlist</option>
+              <label for="teamMemberDepartment">Student department</label><select id="teamMemberDepartment">
+                <option value="">Select department</option>
               </select>
-              <div class="masterlist-filters">
+              <div class="team-member-filters">
                 <input type="search" id="teamCandidateSearch" placeholder="Search name or student ID">
                 <select id="teamCandidateYear">
                   <option value="">All year levels</option>
                 </select>
               </div>
-              <div id="teamCandidates" class="api-user-list">Choose a masterlist to select students.</div>
+              <div id="teamCandidates" class="api-user-list">Choose a department to select students.</div>
               <button type="button" class="btn primary" id="assignTeamMembers">Add selected students</button>
               <label for="teamAdviser">Team adviser</label><select id="teamAdviser">
                 <option value="">Select teacher</option>
@@ -667,6 +634,31 @@
             </div>
           </section>
         </div>
+        <section class="panel" id="teamEditPanel" hidden>
+          <div class="panel-header">
+            <h3>Edit team</h3>
+          </div>
+          <form id="teamEditForm" class="api-form">
+            <input id="editTeamId" type="hidden">
+            <label for="editTeamName">Team name</label><input id="editTeamName" maxlength="100" required>
+            <label for="editTeamSchoolYear">School year</label><input id="editTeamSchoolYear"
+              pattern="[0-9]{4}-[0-9]{4}" required>
+            <label for="editTeamAdviser">Assigned teacher/adviser</label><select id="editTeamAdviser">
+              <option value="">No adviser</option>
+            </select>
+            <label for="editTeamLogoFile">Team logo</label><input id="editTeamLogoFile" type="file"
+              accept="image/png,image/jpeg,image/webp">
+            <button class="btn primary" type="submit">Save team</button>
+            <button class="btn" type="button" id="cancelTeamEdit">Cancel</button>
+            <p class="api-message" id="teamEditMessage" role="status"></p>
+          </form>
+        </section>
+        <section class="panel">
+          <div class="panel-header">
+            <h3>Team rosters</h3><button class="btn" type="button" id="reloadTeams">Refresh</button>
+          </div>
+          <div id="teamTables" class="team-roster-tables">Loading teams…</div>
+        </section>
       </div>
 
       <div class="page" id="team-adviser">
@@ -677,12 +669,16 @@
           </div>
         </div>
         <section class="panel">
-          <label for="advisoryTeam">My teams</label>
-          <select id="advisoryTeam">
-            <option value="">Select an assigned team</option>
-          </select>
-          <input type="search" id="advisoryTeamSearch" placeholder="Search team student name or student ID"
+          <div class="team-adviser-toolbar">
+            <label class="team-adviser-team-field" for="advisoryTeam">
+              <span>My teams</span>
+              <select id="advisoryTeam">
+                <option value="">Select an assigned team</option>
+              </select>
+            </label>
+            <input type="search" id="advisoryTeamSearch" placeholder="Search team student name or student ID"
             aria-label="Search team roster">
+          </div>
           <div class="table-wrap">
             <table>
               <thead>
@@ -789,6 +785,7 @@
               <option value="2">2nd year</option>
               <option value="3">3rd year</option>
               <option value="4">4th year</option>
+              <option value="5">5th year</option>
             </select>
             <select id="fCourse" aria-label="Department">
               <option value="">All departments</option>
@@ -1025,12 +1022,6 @@
             <label for="rfidEvent">Event</label><select id="rfidEvent">
               <option value="">Select event</option>
             </select>
-            <label for="rfidAttendanceMode">Reader mode</label>
-            <select id="rfidAttendanceMode">
-              <option value="auto">Automatic (event becomes done = time out)</option>
-              <option value="time_in">Manual time in (open attendance)</option>
-              <option value="time_out">Manual time out</option>
-            </select>
             <button class="btn primary" type="button" id="saveRfidEventAssignment">Assign event to reader</button>
             <p class="api-message" id="rfidEventMessage" role="status"></p>
           </div>
@@ -1105,8 +1096,6 @@
             <div class="sub">Overview of every section — updated <span id="time3">01:08 PM</span></div>
           </div>
           <div class="header-actions">
-            <button class="btn primary" type="button"
-              onclick="window.open('attendance-display.html', 'attendka-live-display')">Open Live Check-in</button>
             <button class="btn" id="resetLiveAttendance" type="button">Reset live attendance</button>
           </div>
         </div>
@@ -1135,7 +1124,6 @@
                 class="level-3"></i><i class="level-4"></i><span>More</span>
             </div>
           </section>
-          <div class="api-user-list" id="studentEventList">Loading your events…</div>
         </section>
 
         <div class="stats">
@@ -1203,7 +1191,7 @@
               </div>
             </div>
           </div>
-          <div class="panel">
+          <div class="panel" id="dashboardEventsPanel">
             <div class="panel-header">
               <h3>Upcoming events</h3>
               <button type="button" class="panel-link" data-goto="attendance">Course Attendance</button>
@@ -1260,8 +1248,8 @@
     </div>
   </div>
 
-  <script src="js/api.js"></script>
-  <script src="js/app.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/app.js"></script>
 </body>
 
 </html>

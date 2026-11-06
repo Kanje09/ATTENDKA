@@ -7,7 +7,6 @@ import { eventTimestampInstantSql, zonedDayRangeSql } from "../utils/zonedDateRa
 
 const attendanceRouter = Router();
 const EARLY_WINDOW_MIN = 30;
-const LATE_AFTER_MIN = 15;
 
 attendanceRouter.get(
     "/attendance/overview",
@@ -135,7 +134,7 @@ attendanceRouter.get(
             !from || Number.isNaN(Date.parse(from)) ||
             !to || Number.isNaN(Date.parse(to)) || Date.parse(to) <= Date.parse(from) ||
             (departmentId !== null && (!Number.isSafeInteger(departmentId) || departmentId < 1)) ||
-            (yearLevel !== null && (!Number.isSafeInteger(yearLevel) || yearLevel < 1 || yearLevel > 10)) ||
+            (yearLevel !== null && (!Number.isSafeInteger(yearLevel) || yearLevel < 1 || yearLevel > 5)) ||
             (eventId !== null && (!Number.isSafeInteger(eventId) || eventId < 1))
         ) {
             throw new HttpError(400, "invalid_report_filters");
@@ -262,7 +261,7 @@ attendanceRouter.post(
 );
 // Replace the whole attendanceRouter.post("/scan", ...) block in attendance.ts with this.
 // Uses the existing imports/constants: pool, asyncHandler, HttpError,
-// eventTimestampInstantSql, LATE_AFTER_MIN.
+// eventTimestampInstantSql.
 
 const DOUBLE_TAP_GUARD_MS = 60_000; // ignore a time-out tap within 60s of time-in
 
@@ -379,7 +378,6 @@ attendanceRouter.post(
                 title: string;
                 start_datetime: Date;
                 points: number;
-                is_late: boolean;
                 event_status: string;
             };
 
@@ -393,35 +391,31 @@ attendanceRouter.post(
             if (attendanceMode !== "time_out") {
                 eventResult = await db.query<ScanEvent>(
                     `SELECT e.event_id, e.title, ${eventStart} AS start_datetime,
-                            e.points, e.event_status,
-                            now() > ${eventStart} + ($3::int * interval '1 minute') AS is_late
+                            e.points, e.event_status
                      FROM events e
                      WHERE e.requires_attendance = TRUE
                        AND (e.department_id IS NULL OR e.department_id = $1)
                        AND ($2::int IS NULL OR e.event_id = $2)
                        AND e.attendance_open = TRUE
                        AND e.event_status NOT IN ('moved', 'cancelled', 'done')
-                       AND ($4::text <> 'auto' OR NOT EXISTS (
+                       AND ($3::text <> 'auto' OR NOT EXISTS (
                              SELECT 1 FROM event_attendance ea
                              WHERE ea.event_id = e.event_id
-                               AND ea.student_id = $5
+                               AND ea.student_id = $4
                                AND ea.time_in IS NOT NULL
                        ))
                      ORDER BY (now() BETWEEN ${eventStart} AND ${eventEnd}) DESC,
                               abs(extract(epoch FROM (${eventStart} - now()))),
                               ${eventStart}
                      LIMIT 1`,
-                    [card.department_id, assignedEventId, LATE_AFTER_MIN, attendanceMode, card.student_id],
+                    [card.department_id, assignedEventId, attendanceMode, card.student_id],
                 );
             }
 
-            // 2) TIME OUT: the event where THIS student is timed in but not out.
-            //    Works for any event status except moved/cancelled, in both
-            //    "auto" and "time_out" modes. No reader assignment needed.
             if (!eventResult.rowCount && attendanceMode !== "time_in") {
                 eventResult = await db.query<ScanEvent>(
                     `SELECT e.event_id, e.title, ${eventStart} AS start_datetime,
-                            e.points, e.event_status, FALSE AS is_late
+                            e.points, e.event_status
                      FROM events e
                      JOIN event_attendance ea
                        ON ea.event_id = e.event_id
@@ -439,8 +433,6 @@ attendanceRouter.post(
                 timeOutMode = Boolean(eventResult.rowCount);
             }
 
-            // 3) Nothing to time in or out of. If the student has already completed
-            //    an open event, report "duplicate" instead of "no_event".
             if (!eventResult.rowCount) {
                 const completed = await db.query<{ event_id: number; title: string }>(
                     `SELECT e.event_id, e.title
@@ -540,9 +532,8 @@ attendanceRouter.post(
                     attendance_id: number;
                     time_in: Date | null;
                     time_out: Date | null;
-                    status: string;
                 }>(
-                    `SELECT attendance_id, time_in, time_out, status
+                    `SELECT attendance_id, time_in, time_out
                      FROM event_attendance
                      WHERE event_id = $1 AND student_id = $2
                      FOR UPDATE`,
@@ -561,9 +552,9 @@ attendanceRouter.post(
                     return;
                 }
                 const checkedOut = await db.query(
-                    `UPDATE event_attendance SET time_out = now()
+                    `UPDATE event_attendance SET time_out = now(), status = 'present'
                      WHERE attendance_id = $1 AND time_out IS NULL
-                     RETURNING time_out`,
+                     RETURNING time_out, status`,
                     [attendance.attendance_id],
                 );
                 await saveLog(card.card_id, event.event_id, "accepted");
@@ -573,7 +564,7 @@ attendanceRouter.post(
                     ok: true,
                     result: "time_out",
                     name,
-                    status: attendance.status,
+                    status: checkedOut.rows[0].status,
                     event: event.title,
                     time_out: checkedOut.rows[0].time_out,
                 });
@@ -584,10 +575,10 @@ attendanceRouter.post(
             const logId = await saveLog(card.card_id, event.event_id, "accepted");
             const insertedAttendance = await db.query<{ attendance_id: number }>(
                 `INSERT INTO event_attendance (event_id, student_id, time_in, status, log_id)
-                 VALUES ($1, $2, now(), $3, $4)
+                 VALUES ($1, $2, now(), 'present', $3)
                  ON CONFLICT (event_id, student_id) DO NOTHING
                  RETURNING attendance_id`,
-                [event.event_id, card.student_id, event.is_late ? "late" : "present", logId],
+                [event.event_id, card.student_id, logId],
             );
             let attendanceAccepted = Boolean(insertedAttendance.rowCount);
 
@@ -612,10 +603,10 @@ attendanceRouter.post(
                 ) {
                     const checkedIn = await db.query(
                         `UPDATE event_attendance
-                         SET time_in = now(), status = $2, log_id = $3
+                         SET time_in = now(), status = 'present', log_id = $2
                          WHERE attendance_id = $1
                          RETURNING attendance_id`,
-                        [priorAttendance.attendance_id, event.is_late ? "late" : "present", logId],
+                        [priorAttendance.attendance_id, logId],
                     );
                     attendanceAccepted = Boolean(checkedIn.rowCount);
                 }
@@ -642,7 +633,7 @@ attendanceRouter.post(
                 ok: true,
                 result: "accepted",
                 name,
-                status: event.is_late ? "late" : "present",
+                status: "present",
                 event: event.title,
             });
         } catch (error) {
@@ -696,6 +687,32 @@ attendanceRouter.put(
         if (req.authUser!.role === "teacher" && (timeInProvided || timeOutProvided)) {
             throw new HttpError(403, "time_edits_are_admin_only");
         }
+        if (req.authUser!.role === "teacher") {
+            const existing = await pool.query<{ status: string }>(
+                `SELECT ea.status
+                 FROM event_attendance ea
+                 JOIN events e ON e.event_id = ea.event_id
+                 JOIN students s ON s.student_id = ea.student_id
+                 WHERE ea.event_id = $1
+                   AND ea.student_id = $2
+                   AND e.requires_attendance = TRUE
+                   AND (e.department_id IS NULL OR e.department_id = s.department_id)
+                   AND s.department_id = $3
+                   AND ($4::int IS NULL OR s.year_level = $4)`,
+                [
+                    eventId,
+                    studentId,
+                    teacherDepartment!.rows[0].department_id,
+                    teacherDepartment!.rows[0].year_level,
+                ],
+            );
+            if (!existing.rowCount) {
+                throw new HttpError(403, "attendance_status_changes_admin_only");
+            }
+            if (existing.rows[0].status !== status) {
+                throw new HttpError(403, "attendance_status_changes_admin_only");
+            }
+        }
         const result = await pool.query(
             `INSERT INTO event_attendance (event_id, student_id, time_in, time_out, status, remarks)
              SELECT e.event_id, s.student_id,
@@ -711,12 +728,19 @@ attendanceRouter.put(
                AND (e.department_id IS NULL OR e.department_id = s.department_id)
                AND ($5::int IS NULL OR s.department_id = $5)
                AND ($10::int IS NULL OR s.year_level = $10)
+               AND ($11::boolean OR EXISTS (
+                   SELECT 1 FROM event_attendance existing
+                   WHERE existing.event_id = e.event_id
+                     AND existing.student_id = s.student_id
+               ))
              ON CONFLICT (event_id, student_id) DO UPDATE
-               SET status = EXCLUDED.status,
+               SET status = CASE WHEN $11::boolean
+                                 THEN EXCLUDED.status
+                                 ELSE event_attendance.status END,
                    remarks = EXCLUDED.remarks,
                    time_in = CASE
                        WHEN $6::boolean THEN $7::timestamptz
-                       WHEN EXCLUDED.status IN ('present', 'late')
+                       WHEN $11::boolean AND EXCLUDED.status IN ('present', 'late')
                             AND event_attendance.time_in IS NULL THEN now()
                        ELSE event_attendance.time_in
                    END,
@@ -734,6 +758,7 @@ attendanceRouter.put(
                 timeOutProvided,
                 timeOut,
                 teacherDepartment?.rows[0]?.year_level ?? null,
+                req.authUser!.role === "admin",
             ],
         );
         if (!result.rowCount) {
@@ -865,6 +890,7 @@ attendanceRouter.get(
                     e.requires_attendance,
                     e.points, e.event_status, e.attendance_open, e.status_note,
                     ea.time_in, ea.time_out, ea.status,
+                    COALESCE(sec.is_done, FALSE) AS personal_todo_done,
                     CASE
                         WHEN ea.status = 'excused' THEN 'Excused'
                         WHEN ea.status IN ('present', 'late') THEN
@@ -880,6 +906,8 @@ attendanceRouter.get(
              JOIN events e ON e.department_id IS NULL OR e.department_id = s.department_id
              LEFT JOIN event_attendance ea
                ON ea.event_id = e.event_id AND ea.student_id = s.student_id
+             LEFT JOIN student_event_checklist sec
+               ON sec.event_id = e.event_id AND sec.student_id = s.student_id
              WHERE s.user_id = $1
                AND ($2::timestamptz IS NULL OR ${eventEnd} >= $2)
                AND ($3::timestamptz IS NULL OR ${eventStart} < $3)
@@ -887,38 +915,6 @@ attendanceRouter.get(
             [req.authUser!.userId, from, to],
         );
         res.json({ ok: true, events: result.rows });
-    }),
-);
-
-attendanceRouter.put(
-    "/students/me/events/:eventId/checklist",
-    authenticate,
-    allowRoles("student", "team_leader"),
-    asyncHandler(async (req, res) => {
-        const eventId = Number(req.params.eventId);
-        const isDone = req.body?.is_done;
-        if (!Number.isSafeInteger(eventId) || eventId < 1 || typeof isDone !== "boolean") {
-            throw new HttpError(400, "event_id_and_checklist_status_required");
-        }
-        const result = await pool.query(
-            `INSERT INTO student_event_checklist (student_id, event_id, is_done, completed_at)
-             SELECT s.student_id, e.event_id, $3,
-                    CASE WHEN $3 THEN now() ELSE NULL END
-             FROM students s
-             JOIN events e ON e.event_id = $2
-               AND (e.department_id IS NULL OR e.department_id = s.department_id)
-             WHERE s.user_id = $1
-             ON CONFLICT (student_id, event_id) DO UPDATE
-               SET is_done = EXCLUDED.is_done,
-                   completed_at = EXCLUDED.completed_at,
-                   updated_at = now()
-             RETURNING event_id, is_done, completed_at`,
-            [req.authUser!.userId, eventId, isDone],
-        );
-        if (!result.rowCount) {
-            throw new HttpError(404, "student_or_event_not_found");
-        }
-        res.json({ ok: true, checklist: result.rows[0] });
     }),
 );
 
