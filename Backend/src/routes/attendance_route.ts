@@ -890,7 +890,6 @@ attendanceRouter.get(
                     e.requires_attendance,
                     e.points, e.event_status, e.attendance_open, e.status_note,
                     ea.time_in, ea.time_out, ea.status,
-                    COALESCE(sec.is_done, FALSE) AS personal_todo_done,
                     CASE
                         WHEN ea.status = 'excused' THEN 'Excused'
                         WHEN ea.status IN ('present', 'late') THEN
@@ -906,8 +905,6 @@ attendanceRouter.get(
              JOIN events e ON e.department_id IS NULL OR e.department_id = s.department_id
              LEFT JOIN event_attendance ea
                ON ea.event_id = e.event_id AND ea.student_id = s.student_id
-             LEFT JOIN student_event_checklist sec
-               ON sec.event_id = e.event_id AND sec.student_id = s.student_id
              WHERE s.user_id = $1
                AND ($2::timestamptz IS NULL OR ${eventEnd} >= $2)
                AND ($3::timestamptz IS NULL OR ${eventStart} < $3)
