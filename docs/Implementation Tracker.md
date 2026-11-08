@@ -177,9 +177,9 @@ Phases are **retrospective**: the repository has no roadmap, so work is grouped 
 
 | # | Item | Status | Notes / evidence | Ref |
 |---|------|:------:|------------------|-----|
-| 8.1 | Card-tap web login: mount route in server | ⛔ | `cardLogin_route.ts` never imported by `app.ts` | [[API Contracts/08-card-login-not-live]] |
-| 8.2 | Card-tap web login: `card_tokens` migration | ⛔ | Table used by code but created nowhere in the repo | [[API Contracts/08-card-login-not-live]] |
-| 8.3 | Card-tap web login: reconcile frontend path with router path and `CARD_LOGIN_URL` host | ⛔ | Page calls `/auth/card-login`; router host differs from API host | [[API Contracts/08-card-login-not-live]] |
+| 8.1 | Card-tap web login: mount route in server | ✅ | Mounted at API root; admin link and card exchange paths match their callers | [[API Contracts/08-card-login-not-live]] |
+| 8.2 | Card-tap web login: `card_tokens` migration | ✅ | Added migration 011; apply it to the deployed database | [[API Contracts/08-card-login-not-live]] |
+| 8.3 | Card-tap web login: reconcile frontend path with router path and `CARD_LOGIN_URL` host | ✅ | Frontend calls `/auth/card-login`, now served by the mounted router | [[API Contracts/08-card-login-not-live]] |
 | 8.4 | Card-tap web login: token expiry, `trust proxy` | ⛔ | Tokens never expire; rate limit keyed on proxy IP | [[List of Vulnerabilities#V-08]] |
 | 8.5 | Admin UI to generate/revoke card links | ⛔ | No screen exists | [[Wireframe & Flows#Flow 10 — Card-tap web login (⛔ not live)]] |
 

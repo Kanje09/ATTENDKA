@@ -60,7 +60,7 @@
 | 10 | Points Ledger | [[#10. Points Ledger]] | [[API Contracts/06-student-self-service]] | Student dashboard | 🟨 |
 | 11 | Student Self-Service | [[#11. Student Self-Service]] | [[API Contracts/06-student-self-service]] | Student dashboard, Upcoming events | ✅ |
 | 12 | Masterlists & Teams | [[#12. Masterlists & Teams]] | [[API Contracts/07-directory-masterlists-teams]] | Masterlists, Team adviser | 🟨 |
-| 13 | Card-Tap Web Login | [[#13. Card-Tap Web Login (Not Live)]] | [[API Contracts/08-card-login-not-live]] | Card-login landing | ⛔ |
+| 13 | Card-Tap Web Login | [[#13. Card-Tap Web Login]] | [[API Contracts/08-card-login-not-live]] | Card-login landing | ⛔ |
 | 14 | Reader Firmware (ESP32) | [[#14. Reader Firmware (ESP32)]] | [[API Contracts/04-scan-processing]] | Reader LCD & buzzer | 🟨 |
 
 ---
@@ -284,16 +284,16 @@
 - Team membership **no longer promotes** a student to `team_leader`; new teams rely on teacher advisers.
 - 🟨 Status: create/assign flows complete; no edit/remove flows.
 
-## 13. Card-Tap Web Login (Not Live)
+## 13. Card-Tap Web Login
 
-**Features (intended)**
+**Features**
 - Admin generates a private one-time-display link per student; opening it (e.g., from an NFC tag) signs the student in without a password.
 
-**Business Rules (as coded, currently unreachable — ⛔)**
+**Business Rules**
 - Only active `student`/`team_leader` accounts qualify (`400 students_only` otherwise).
 - Generating a new link **revokes all earlier links** for that user. Only a SHA-256 hash is stored; the link is shown once.
 - Exchange: token length 40–100, else `401 invalid_card`; 30 failed tries per 15 min per IP.
-- **Not shipped:** the router is never mounted in the server, the frontend path does not match the router's path, `card_tokens` has no migration, and links never expire. See [[API Contracts/08-card-login-not-live]].
+- The router is mounted at the API root and migration 011 creates `card_tokens`; apply the migration to the deployed database before use. Links do not expire, and the admin dashboard has no link-generation control. See [[API Contracts/08-card-login-not-live]].
 
 ## 14. Reader Firmware (ESP32)
 

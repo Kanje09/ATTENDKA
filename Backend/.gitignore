@@ -6,6 +6,7 @@ database/*
 !database/migrations/
 database/migrations/*
 !database/migrations/010_department_advisors_and_team_logos.sql
+!database/migrations/011_card_tokens.sql
 
 .env
 dist/

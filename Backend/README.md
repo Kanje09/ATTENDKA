@@ -47,8 +47,9 @@ If the database health check fails, verify PostgreSQL is running and the existin
 7. `database/migrations/008_live_attendance_reset.sql` adds a non-destructive live-display reset cursor.
 8. `database/migrations/009_event_attendance_open.sql` adds the explicit event attendance open/closed switch.
 9. `database/migrations/010_department_advisors_and_team_logos.sql` adds department advisors and allows team logos to be stored as image data.
+10. `database/migrations/011_card_tokens.sql` creates the hashed-token store used by card-tap login.
 
-Migrations 004–010 are safe to rerun. Migration 006 is a repair migration for databases where the earlier assignment-table/mode migration did not finish or was skipped. Existing events become `pending`; admins can use **Time-In** to open attendance early or set the event status to `ongoing`. The backend automatically closes attendance after the scheduled end time; admins can also use **Time-Out** manually.
+Migrations 004–011 are safe to rerun. Migration 006 is a repair migration for databases where the earlier assignment-table/mode migration did not finish or was skipped. Existing events become `pending`; admins can use **Time-In** to open attendance early or set the event status to `ongoing`. The backend automatically closes attendance after the scheduled end time; admins can also use **Time-Out** manually.
 
 Apply migration 007 to add `rfid_readers.last_seen_at`. The reader list remains compatible with databases before migration 007 (readers will appear offline), but authenticated heartbeats and recording last-seen scan times require the migration.
 
