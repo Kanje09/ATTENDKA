@@ -22,7 +22,7 @@ const limiter = rateLimit({
 
 // ADMIN: generate (or regenerate) a card link for a student
 router.post(
-    "/admin/card-token/:userId",
+    ["/admin/card-token/:userId", "/admin/card-login/:userId"],
     authenticate,
     allowRoles("admin"),
     async (req, res, next) => {

@@ -8,10 +8,10 @@ The intended feature: an admin generates a private link for a student; the stude
 
 | # | Method | Path | Access | Purpose |
 |---|--------|------|--------|---------|
-| 8.1 | POST | `/admin/card-token/:userId` | Admin | Create/replace a student's link |
+| 8.1 | POST | `/admin/card-token/:userId`, `/admin/card-login/:userId` | Admin | Create/replace a student's link |
 | 8.2 | POST | `/auth/card-login` | Public (rate-limited) | Exchange link token for a session |
 
-## 8.1 `POST /admin/card-token/:userId`
+## 8.1 `POST /admin/card-token/:userId` (also `/admin/card-login/:userId`)
 
 - Target must be an **active** user with role `student` or `team_leader`.
 - Creates a 32-byte random token, stores only its SHA-256 hash, and **revokes every earlier token** for that user (one live link per student).
