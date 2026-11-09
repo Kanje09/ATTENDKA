@@ -61,6 +61,6 @@ app.use((_req, res) => {
     res.status(404).json({ ok: false, error: "not_found" });
 });
 
-app.use(errorHandler);
+app.use(errorHandler);  
 
 export default app;
