@@ -5,7 +5,7 @@ import attendanceRouter from "../routes/attendance_route.js";
 import eventsRouter from "../routes/events_route.js";
 import directoryRouter from "../routes/directory_route.js";
 import adminRouter from "../routes/admin_route.js";
-import cardLoginRouter from "../routes/cardLogin_route.js";
+import cardLoginRouter from "../routes/cardlogin_route.js";
 import { errorHandler } from "../middleware/errorHandler.js";
 
 const app = express();
