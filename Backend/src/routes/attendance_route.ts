@@ -397,6 +397,7 @@ attendanceRouter.post(
                        AND (e.department_id IS NULL OR e.department_id = $1)
                        AND ($2::int IS NULL OR e.event_id = $2)
                        AND e.attendance_open = TRUE
+                       AND ${eventEnd} > now()
                        AND e.event_status NOT IN ('moved', 'cancelled', 'done')
                        AND ($3::text <> 'auto' OR NOT EXISTS (
                              SELECT 1 FROM event_attendance ea
@@ -426,7 +427,8 @@ attendanceRouter.post(
                        AND (e.department_id IS NULL OR e.department_id = $1)
                        AND ($2::int IS NULL OR e.event_id = $2)
                        AND e.attendance_open = TRUE
-                       AND e.event_status NOT IN ('moved', 'cancelled')
+                       AND ${eventEnd} > now()
+                       AND e.event_status NOT IN ('moved', 'cancelled', 'done')
                      ORDER BY ea.time_in DESC
                      LIMIT 1`,
                     [card.department_id, assignedEventId, card.student_id],

@@ -1617,9 +1617,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 isAdmin
                   ? `<div class="event-management-actions event-summary-actions">
                 <button class="btn edit-event" data-event="${item.event_id}" type="button" aria-expanded="false">Edit</button>
-                <button class="btn time-in-event" data-event="${item.event_id}" data-event-end="${escapeHtml(item.end_datetime)}" type="button" ${!item.requires_attendance ? "disabled" : ""}>Time-In</button>
-                <button class="btn time-out-event" data-event="${item.event_id}" data-event-end="${escapeHtml(item.end_datetime)}" type="button" ${!item.requires_attendance ? "disabled" : ""}>Time-Out</button>
-                <button class="btn close-attendance-event" data-event="${item.event_id}" type="button" ${!item.requires_attendance ? "disabled" : ""}>Attendance Closed</button>
+                <button class="btn toggle-attendance-event" data-event="${item.event_id}" data-event-end="${escapeHtml(item.end_datetime)}" data-attendance-open="${item.attendance_open === true}" type="button" ${!item.requires_attendance || (item.attendance_open !== true && (Date.parse(item.end_datetime) <= Date.now() || ["done", "moved", "cancelled"].includes(item.event_status))) ? "disabled" : ""}>${item.attendance_open === true ? "Close Attendance" : "Open Attendance"}</button>
                 <button class="btn delete-event" data-event="${item.event_id}" type="button">Remove Event</button>
               </div>
               <div class="event-editor" data-attendance-open="${isEventAttendanceOpen(item)}" hidden>
@@ -1700,12 +1698,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   byId("eventList")?.addEventListener("click", async (event) => {
     const editButton = event.target.closest(".edit-event");
     const saveButton = event.target.closest(".save-event-status");
-    const timeInButton = event.target.closest(".time-in-event");
-    const timeOutButton = event.target.closest(".time-out-event");
-    const closeAttendanceButton = event.target.closest(".close-attendance-event");
+    const attendanceButton = event.target.closest(".toggle-attendance-event");
     const deleteButton = event.target.closest(".delete-event");
     if (
-      (!editButton && !saveButton && !timeInButton && !timeOutButton && !closeAttendanceButton && !deleteButton) ||
+      (!editButton && !saveButton && !attendanceButton && !deleteButton) ||
       !isAdmin
     )
       return;
@@ -1718,7 +1714,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       editButton.textContent = editor.hidden ? "Edit" : "Close editor";
       return;
     }
-    const button = saveButton || timeInButton || timeOutButton || closeAttendanceButton || deleteButton;
+    const button = saveButton || attendanceButton || deleteButton;
     const eventId = button.dataset.event;
     const row = button.closest(".api-event-row");
     try {
@@ -1730,8 +1726,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         await loadEvents();
         return;
       }
-      if (timeInButton || timeOutButton || closeAttendanceButton) {
-        const nextOpen = !closeAttendanceButton;
+      if (attendanceButton) {
+        const nextOpen = attendanceButton.dataset.attendanceOpen !== "true";
         if (nextOpen && Date.parse(button.dataset.eventEnd) <= Date.now()) {
           throw new Error(
             "This event has already ended. Edit its scheduled end time before opening attendance.",
@@ -1785,10 +1781,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     } catch (error) {
       setFormMessage("eventCalendarMessage", error.message);
     } finally {
-      if (timeInButton?.isConnected) timeInButton.disabled = false;
-      if (timeOutButton?.isConnected) timeOutButton.disabled = false;
-      if (closeAttendanceButton?.isConnected)
-        closeAttendanceButton.disabled = false;
+      if (attendanceButton?.isConnected) attendanceButton.disabled = false;
       if (saveButton?.isConnected) {
         saveButton.disabled = false;
         saveButton.classList.remove("is-saving");
