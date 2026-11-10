@@ -102,6 +102,7 @@ Upserts one student's record for one event.
 
 Behaviour:
 - Student must be in the event's scope (school-wide event, or same department) and, for a teacher, in the teacher's department/year. The event must have `requires_attendance = true`.
+- Teachers may change an absent student to `present`, including when the absent row is implicit because no attendance record exists. Other status changes remain admin-only.
 - No time supplied and status is `present`/`late` and no `time_in` exists ⇒ `time_in = now()`.
 - Setting `absent`/`excused` does **not** clear existing times.
 - Event status/dates are **not** checked (future, cancelled, or done events can be edited).

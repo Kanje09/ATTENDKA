@@ -425,6 +425,7 @@ attendanceRouter.post(
                      WHERE e.requires_attendance = TRUE
                        AND (e.department_id IS NULL OR e.department_id = $1)
                        AND ($2::int IS NULL OR e.event_id = $2)
+                       AND e.attendance_open = TRUE
                        AND e.event_status NOT IN ('moved', 'cancelled')
                      ORDER BY ea.time_in DESC
                      LIMIT 1`,
@@ -687,14 +688,15 @@ attendanceRouter.put(
         if (req.authUser!.role === "teacher" && (timeInProvided || timeOutProvided)) {
             throw new HttpError(403, "time_edits_are_admin_only");
         }
+        let teacherAbsentToPresent = false;
         if (req.authUser!.role === "teacher") {
             const existing = await pool.query<{ status: string }>(
-                `SELECT ea.status
-                 FROM event_attendance ea
-                 JOIN events e ON e.event_id = ea.event_id
-                 JOIN students s ON s.student_id = ea.student_id
-                 WHERE ea.event_id = $1
-                   AND ea.student_id = $2
+                `SELECT COALESCE(ea.status, 'absent') AS status
+                 FROM events e
+                 JOIN students s ON s.student_id = $2
+                 LEFT JOIN event_attendance ea
+                   ON ea.event_id = e.event_id AND ea.student_id = s.student_id
+                 WHERE e.event_id = $1
                    AND e.requires_attendance = TRUE
                    AND (e.department_id IS NULL OR e.department_id = s.department_id)
                    AND s.department_id = $3
@@ -709,7 +711,9 @@ attendanceRouter.put(
             if (!existing.rowCount) {
                 throw new HttpError(403, "attendance_status_changes_admin_only");
             }
-            if (existing.rows[0].status !== status) {
+            teacherAbsentToPresent =
+                existing.rows[0].status === "absent" && status === "present";
+            if (existing.rows[0].status !== status && !teacherAbsentToPresent) {
                 throw new HttpError(403, "attendance_status_changes_admin_only");
             }
         }
@@ -728,24 +732,28 @@ attendanceRouter.put(
                AND (e.department_id IS NULL OR e.department_id = s.department_id)
                AND ($5::int IS NULL OR s.department_id = $5)
                AND ($10::int IS NULL OR s.year_level = $10)
-               AND ($11::boolean OR EXISTS (
+               AND ($11::boolean OR $12::boolean OR EXISTS (
                    SELECT 1 FROM event_attendance existing
                    WHERE existing.event_id = e.event_id
                      AND existing.student_id = s.student_id
                ))
              ON CONFLICT (event_id, student_id) DO UPDATE
-               SET status = CASE WHEN $11::boolean
+               SET status = CASE WHEN $11::boolean OR
+                                      ($12::boolean AND event_attendance.status = 'absent'
+                                       AND EXCLUDED.status = 'present')
                                  THEN EXCLUDED.status
                                  ELSE event_attendance.status END,
                    remarks = EXCLUDED.remarks,
                    time_in = CASE
                        WHEN $6::boolean THEN $7::timestamptz
-                       WHEN $11::boolean AND EXCLUDED.status IN ('present', 'late')
+                       WHEN ($11::boolean OR $12::boolean)
+                            AND EXCLUDED.status IN ('present', 'late')
                             AND event_attendance.time_in IS NULL THEN now()
                        ELSE event_attendance.time_in
                    END,
                    time_out = CASE WHEN $8::boolean THEN $9::timestamptz
                                    ELSE event_attendance.time_out END
+             WHERE NOT $12::boolean OR event_attendance.status = 'absent'
              RETURNING *`,
             [
                 eventId,
@@ -759,9 +767,13 @@ attendanceRouter.put(
                 timeOut,
                 teacherDepartment?.rows[0]?.year_level ?? null,
                 req.authUser!.role === "admin",
+                teacherAbsentToPresent,
             ],
         );
         if (!result.rowCount) {
+            if (teacherAbsentToPresent) {
+                throw new HttpError(409, "attendance_status_changed");
+            }
             throw new HttpError(404, "event_or_student_not_found");
         }
         res.json({ ok: true, attendance: result.rows[0] });

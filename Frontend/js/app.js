@@ -98,6 +98,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (byId("setEmail")) byId("setEmail").value = currentUser.email || "";
 
   const isAdmin = currentUser.role === "admin";
+  const isTeacher = currentUser.role === "teacher";
   const isStaff = isAdmin || currentUser.role === "teacher";
   const isStudent =
     currentUser.role === "student" || currentUser.role === "team_leader";
@@ -2307,9 +2308,9 @@ document.addEventListener("DOMContentLoaded", async () => {
           <td>${escapeHtml(record.student_no)}</td>
           <td>${escapeHtml(record.year_level)}</td>
           <td>${
-            isAdmin
+            isAdmin || (isTeacher && record.status === "absent")
               ? `<select class="attendance-status" aria-label="Attendance status" data-event="${record.event_id}" data-student="${record.student_id}">
-                ${["present", "late", "absent", "excused"].map((status) => `<option value="${status}" ${record.status === status ? "selected" : ""}>${status}</option>`).join("")}
+                ${(isAdmin ? ["present", "late", "absent", "excused"] : ["absent", "present"]).map((status) => `<option value="${status}" ${record.status === status ? "selected" : ""}>${status}</option>`).join("")}
               </select>`
               : escapeHtml(record.status)
           }</td>

@@ -135,7 +135,7 @@
   - `event_status`: `pending` (default) · `ongoing` · `moved` · `done` · `cancelled`. Any value may follow any other; there are no transition rules.
   - `attendance_open` (default **false**): the only gate that lets a scan record a **time-in**.
 - Moving an event to `done`, `moved`, or `cancelled` from the dashboard also sends `attendance_open = false`; the API itself does not couple them, but the scan rules block time-in for those three statuses regardless.
-- **Open/Close attendance** button: enabled for `pending`/`ongoing` events (and for any event that is currently open, so it can be closed); disabled and labelled "Attendance closed" for `done`/`moved`/`cancelled`. Closing stops new time-ins but **assigned time-outs still work**.
+- **Open/Close attendance** button: enabled for `pending`/`ongoing` events (and for any event that is currently open, so it can be closed); disabled and labelled "Attendance closed" for `done`/`moved`/`cancelled`. Scans can time in or time out only while attendance is open; closing attendance stops both.
 - Reading: `GET /events` returns at most 500 events; `date` filters on **start** day (school time zone), `from`/`to` use overlap semantics, `department_id` returns that department **plus** school-wide events.
 - **Delete is permanent** and removes reader assignments and personal checklist ticks by cascade; consequences for attendance and points depend on the unseen base schema (*unverified*).
 - Changing an event's `points` after the fact does not change points already awarded.
@@ -174,7 +174,7 @@
 - **Present vs late:** late when `now` is more than **15 minutes after the start**; any earlier tap, including before the start, is `present`.
 - **Modes:**
   - `time_in`: only records time-in; a repeat tap → `duplicate`.
-  - `time_out`: only records time-out for an event where the student is timed in and not out; works for pending/ongoing/done events, needs no open attendance, never for `moved`/`cancelled`.
+  - `time_out`: only records time-out for an event where the student is timed in and not out, attendance is open, and the event is not `moved`/`cancelled`.
   - `auto` (also when no assignment): first tap = time-in; a later tap = time-out.
 - **Double-tap guard:** a time-out tap less than **60 seconds** after time-in is `duplicate` and changes nothing. The firmware also ignores the same UID for 5 s.
 - **Pre-filled rows:** if an admin/teacher already created an `absent` or `excused` row with no time-in, the student's tap **converts it** to `present`/`late` — an `excused` mark is overwritten.
@@ -194,7 +194,7 @@
 
 **Business Rules**
 - **Statuses:** `present`, `late`, `absent`, `excused`. A student with **no record** is reported as `absent`.
-- **Who may edit what:** teachers set status and remarks only; sending any time field (even `null`) → `403 time_edits_are_admin_only`. Admins may also set or clear time-in/out.
+- **Who may edit what:** teachers may mark an absent student present within their department/year scope, and edit remarks; other status changes and any time field (even `null`) are admin-only (`403 time_edits_are_admin_only` for time fields). Admins may set any status and set or clear time-in/out.
 - **Remarks** string ≤ 255, blank stored as empty; `time_out` must not precede `time_in` when both are supplied (`400 invalid_attendance_update`). The admin correction route also compares against stored values (`400 time_out_before_time_in`).
 - **Scope:** an edit applies only if the event requires attendance, the student belongs to the event's department (or the event is school-wide) and, for teachers, to the teacher's department and year; otherwise `404 event_or_student_not_found`.
 - **Auto time-in on edit:** setting `present`/`late` with no time supplied and none stored stamps `time_in = now`.
